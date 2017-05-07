@@ -1,0 +1,32 @@
+Package: gisr
+Type: Package
+Title: Functions for Spatial Data Manipulation and Plotting  
+Version: 0.1.0
+Author: person("Blake", "Massey",, "blakemassey@gmail.com", c("aut", "cre"))
+Maintainer: Blake Massey <blakemassey@gmail.com>
+Description: This package contains functions for creating, managing, plotting, 
+    and exporting spatial data.
+License: GPL-2
+Encoding: UTF-8
+LazyData: true
+Imports:
+  circular,
+  CircStats,
+  ggplot2,
+  graphics,
+  grid,  
+  lubridate,
+  magrittr,
+  move,
+  plot3D,
+  plot3Drgl,
+  plotKML,
+  plyr,
+  dplyr,
+  ks,
+  raster,
+  RColorBrewer,
+  rgdal,
+  scales,
+  sp
+RoxygenNote: 6.0.1
