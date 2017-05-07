@@ -1,2 +1,2 @@
-# ibmr
-Individual-based modeling (IBM) framework for R
+# gisr
+Package for geospatial data manipulation, analysis, and plotting
