@@ -20,5 +20,5 @@ Dataframe of compiled files
 Compiles the downloaded CTT files
 }
 \details{
-Internal parameters are set specifically for Maine data
+Internal parameters are set specifically for my project's data
 }

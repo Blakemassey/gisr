@@ -17,6 +17,6 @@ Dataframe of downloaded files
 \description{
 Downloads data files from CTT's website
 }
-\examples{
-This is ENTIRELY DEPENDENT on my Python scripts/locations.
+\details{
+This script is ENTIRELY DEPENDENT on Python code on my computer.
 }

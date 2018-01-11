@@ -47,16 +47,76 @@ AddFirstLastDistance <- function(df = df,
   df <- merge(df, first_last_datetime, by=c("by", "datetime"), all.x=TRUE)
   df <- merge(df, first_last_date, by=c("by", "date"), all.x=TRUE)
       #adds the lat and long for the first and last records to the dataframe
-  df <- plyr::adply(df, 1, transform, dist_first = as.integer(sqrt(sum((c(
-    long_utm, lat_utm) - c(long_utm_first, lat_utm_first))^2))))  # Pythagorean
-  df <- plyr::adply(df, 1, transform, dist_last = as.integer(sqrt(sum((c(
-    long_utm, lat_utm) - c(long_utm_last, lat_utm_last))^2)))) # Pythagorean
+  df$dist_first <- sqrt((df$long_utm - df$long_utm_first)^2 +
+      (df$lat_utm - df$lat_utm_first)^2)
+  df$dist_last <- sqrt((df$long_utm - df$long_utm_last)^2 +
+      (df$lat_utm - df$lat_utm_last)^2)
   df$date <- as.Date(df$date, "%Y-%m-%d") #convert date into date format
   df$datetime <- strptime(df$datetime, "%Y-%m-%d %H:%M:%S")  # back to POSIXct
   df$datetime <- as.POSIXct(df$datetime, tz=tz, usetz=FALSE)  # returns to tz
   drops <- c("long_utm_first", "lat_utm_first", "long_utm_last",
              "lat_utm_last", "by")  # vector of columns to drop
   df <- df[ ,!(names(df) %in% drops)]
+  return(df)
+}
+
+#' Adds nest-related columns to dataframe
+#'
+#' Adds nest locations, angle, and distance to each record, based on "date" and
+#'   "id"
+#'
+#' @usage AddNestData(df, nests_study, nests_use)
+#'
+#' @param df dataframe of BAEA location data
+#' @param nests_study .csv file of study nests. Default is:
+#'   "C:/Work/R/Data/BAEA/Nests/Nests_Study.csv"
+#' @param nests_use .csv file of study nests corresponding use dates. Default
+#'   is: "C:/Work/R/Data/BAEA/Nests/Nests_Study_Use_Dates.csv"
+#'
+#' @return dataframe
+#'
+#' @importFrom magrittr "%>%"
+#' @export
+#'
+AddNestData <- function(df = df,
+                        nests_study = "Data/Nests/Nests_rds/nests_study.rds",
+                        nests_use = "Data/Nests/Nests_Study_Use_Dates.csv"){
+  df <- df
+  nests <- read.csv(nests_use, header=TRUE, stringsAsFactors=FALSE,
+      row.names=NULL) %>%
+    dplyr::left_join(., readRDS(nests_study) %>% mutate(nests_area =
+        as.character(nest_area)),
+      by=c("name", "nest_site", "nest_area")) %>%
+    dplyr::mutate(
+      use_start_date = as.Date(as.character(use_start_date), "%Y%m%d"),
+      use_end_date = as.Date(as.character(use_end_date), "%Y%m%d"),
+      clutch_initiation = as.Date(as.character(clutch_initiation), "%Y%m%d"),
+      breeding_end_date = as.Date(as.character(breeding_end_date), "%Y%m%d"),
+      nest_long_utm = long_utm,
+      nest_lat_utm = lat_utm) %>%
+    dplyr::select(eagle_id, nest_site, nest_area, use_start_date, use_end_date,
+      nest_long_utm, nest_lat_utm)
+  nests_blank <- nests[0,]
+  nests_blank[1:nrow(df),] <- NA
+  df <- cbind(df, nests_blank)
+    df_10000 <- df[25000,]
+  for (i in 1:nrow(nests)) {
+    nest <- nests[i,]
+    if (is.na(nest$use_end_date)) {
+      use_end_date <- Sys.Date() + 1
+    } else {
+      use_end_date <- nest$use_end_date
+    }
+    sv <- df$id == nest$eagle_id & df$date >= nest$use_start_date &
+      df$date <= use_end_date
+    df[sv, (ncol(df)-length(nest)+1):ncol(df)] <- nest[1,]
+  }
+  df <- df %>% dplyr::select(-eagle_id)
+  df$nest_angle <- CalculateAngleToPoint(df$long_utm, df$lat_utm,
+    df$nest_long_utm, df$nest_lat_utm)
+  df <- df %>%
+    dplyr::mutate(nest_dist = round(sqrt(((long_utm - nest_long_utm)^2) +
+      ((lat_utm - nest_lat_utm)^2))))
   return(df)
 }
 
@@ -127,7 +187,7 @@ AddStepLengthAndAngles <- function(df,
 #' @return Dataframe with "step_time" column
 #' @export
 #'
-AddStepTime<- function(df,
+AddStepTime <- function(df,
                        by = "id",
                        datetime = "datetime"){
   df <- df
@@ -145,7 +205,7 @@ AddStepTime<- function(df,
     df2 <- cbind(data, step_time = StepTime(df=data, datetime=datetime))
     out <- rbind(out, df2)
   }
-  out$by<-NULL
+  out$by <- NULL
   return(out)
 }
 
@@ -201,11 +261,11 @@ AddSolarTimes <- function(df = df,
     df <- merge(df, solarnoon, by="date", all.x = TRUE)
     df <- merge(df, sunset, by="date", all.x = TRUE)
     df$hr_before_sunrise <- df$sunrise - 3600  # subtracts an hour from sunset
-    tz(df$sunrise) <- tz  # sets timezone for sunrise times
-    tz(df$hr_before_sunrise) <- tz  # sets timezone for sunrise times
+    lubridate::tz(df$sunrise) <- tz  # sets timezone for sunrise times
+    lubridate::tz(df$hr_before_sunrise) <- tz  # sets timezone for sunrise times
     df$hr_after_sunset <- df$sunset + 3600  # adds an hour to sunset
-    tz(df$sunset) <- tz  # sets timezone for sunrise times
-    tz(df$hr_after_sunset) <- tz  # sets timezone for sunrise times
+    lubridate::tz(df$sunset) <- tz  # sets timezone for sunrise times
+    lubridate::tz(df$hr_after_sunset) <- tz  # sets timezone for sunrise times
   return(df)
   }
   df2 <- plyr::ddply(df, plyr::.(by), AddTimes)
@@ -228,23 +288,16 @@ AddSolarTimes <- function(df = df,
 #'
 #' @import dplyr
 #'
-#' @details Internal parameters are set specifically for Maine data
+#' @details Internal parameters are set specifically for my project's data
 #'
 CompileDownloads <- function(units = "deployed",
                              compile = "all",
                              tz = "Etc/GMT+5") {
   `%>%` <- magrittr::`%>%`
-  infile <- paste("C:/Work/R/Data/BAEA/Telemetry/", units, "/",
-    compile, sep = "")
+  infile <- paste0("Data/CTT/", units, "/", compile)
   filenames <- list.files(path=infile, full.names=TRUE)
   output <- paste("into ", units, "_", compile, sep="")
   writeLines(noquote(paste(c("Compiling files:", filenames, output))))
-#  suppressWarnings(df <- do.call("rbind", lapply(filenames, read.csv,colClasses=
-#    c("character", "character", "character", "character", "character",
-#    "character", "numeric", "integer", "integer", "numeric",
-#    "numeric", "numeric", "character", "character","character",
-#    "integer", "integer", "character", "character"), header = TRUE,
-#    na.strings = "")))
   units_list <- list()
   for (i in 1:length(filenames)){
     if(length(read.csv(filenames[i])) > 1) {
@@ -252,7 +305,7 @@ CompileDownloads <- function(units = "deployed",
       "character", "character", "character", "numeric",  "numeric", "numeric",
       "integer", "integer", "numeric", "numeric", "numeric", "numeric",
       "numeric", "integer", "numeric"), header = TRUE, na.strings = ""))
-      name <- paste('item:',i,sep='')
+      name <- paste('item:', i, sep='')
       units_list[[name]] <- unit
     }
   }
@@ -260,15 +313,6 @@ CompileDownloads <- function(units = "deployed",
   df <- subset(df, select=serial:alt)
   df[which(colnames(df) == "speed")] <- as.integer(round(df$speed))
   df[which(colnames(df) == "alt")] <- as.integer(round(df$alt))
-  date <- Sys.Date()
-  if (compile == "recent" || compile == "all") {
-    outfile <- paste("C:/Work/R/Data/BAEA/Telemetry/", units, "/Archive/",
-      compile, "/",date,".csv", sep ="")
-    if ( !file.exists(outfile)) {
-      writeLines(noquote(c("Writing: ", outfile)))
-      write.csv(df, file=outfile, row.names=FALSE)
-    }
-  }
   df$serial <- substr(df$serial, nchar(df$serial)-5+1, nchar(df$serial))
     # removes first 15 digits in serial, then convert to integer
   colnames(df)[2] <- "date"  # "GPS_date_DDMMYYYY" to "date"
@@ -281,17 +325,15 @@ CompileDownloads <- function(units = "deployed",
   df$year <- as.numeric(strftime(df$datetime, format="%Y", usetz=FALSE))  # year
   df$date <- as.POSIXct(df$datetime, tz=tz, "%Y-%m-%d", usetz=FALSE)  # date
   df$date <- as.Date(df$datetime, tz=tz,"%Y-%m-%d", usetz=FALSE)  # only date
-  if("lon" %in% colnames(df)){
-     colnames(df)[which(names(df) == "lon")] <- "long"
-  }
+  if("lon" %in% colnames(df)) colnames(df)[which(names(df) == "lon")] <- "long"
   df$long <- as.numeric(gsub("W", "", df$long))
   df$long <- as.numeric(gsub("E", "", df$long))
   if (all(df$long >= 0)) df$long <- (df$long)*-1
   df$lat <- as.numeric(gsub("N", "", df$lat))
   df$lat <- as.numeric(gsub("S", "", df$lat))
-  gps_data <- read.csv("C:/Work/R/Data/BAEA/GPS_Deployments.csv",
+  gps_data <- read.csv("Data/GPS/GPS_Deployments.csv",
     header=TRUE, as.is=TRUE, na.strings = "")
-  gps_data <-  subset(gps_data, select=serial:notes)  # keeps id:notes col
+  gps_data <-  subset(gps_data, select=serial:notes)  # keeps serial:notes col
   gps_data$id <- NA
   date_cols <- c("on_hand","deployed", "end_data",  "failed",  "removed",
       "recovered")
@@ -301,7 +343,7 @@ CompileDownloads <- function(units = "deployed",
   }
   gps_blank <- gps_data[0,]
   gps_blank[1:nrow(df),] <- NA
-  gps_blank$serial <- NULL  # removes the redudant serial column
+  gps_blank$serial <- NULL  # removes the redundant serial column
   df <- cbind(df, gps_blank)
   if (units == "deployed") {
     deployed <- gps_data[which(!is.na(gps_data$deploy_location)),]
@@ -313,13 +355,14 @@ CompileDownloads <- function(units = "deployed",
         end_date <- record$end_data
       }
       sv <- df$serial == record$serial & df$date > record$deployed &
-      df$date < end_date
+        df$date < end_date
+      print(paste0(record$deploy_location, " has ", sum(sv), " records."))
       record$id <- record$deploy_location
       record$serial <- NULL # prevents a redundant "serial.1" column
       df[sv, (ncol(df)-length(record)+1):ncol(df)] <- record[1,]
     }
     df <- subset(df, (!is.na(deploy_location)))
-    df <- df %>% arrange(deploy_location, datetime)
+    df <- df %>% dplyr::arrange(deploy_location, datetime)
   }
   if (units == "reserve") {
     reserve <- gps_data
@@ -335,7 +378,7 @@ CompileDownloads <- function(units = "deployed",
       } else {
         deploy_date <- record$deployed
       }
-      sv <- df$serial == record$serial & df$date > record$on_hand  & df$date <
+      sv <- df$serial == record$serial & df$date > record$on_hand & df$date <
         deploy_date & df$date < end_date
       record$id <- record[1,"serial"]
       record$serial <- NULL  # prevents a redundant "serial.1" column
@@ -398,28 +441,107 @@ CreateMove <- function(df){
 #' @return Dataframe of downloaded files
 #' @export
 #'
-#' @examples This is ENTIRELY DEPENDENT on my Python scripts/locations.
+#' @details This script is ENTIRELY DEPENDENT on Python code on my computer.
+#'
 DownloadCTT <- function(units="",
                         download="recent") {
   if (units == "deployed" && download == "all") {
-    system('python C:/Work/Python/Scripts/BAEA_CTT/Import_Deployed_All.py')
+    system('python C:/Work/Python/Scripts/cttpy/Import_Deployed_All.py')
     writeLines(noquote("Downloading all data for deployed units from CTT"))
   }
   if (units == "deployed" && download == "recent") {
-    system('python C:/Work/Python/Scripts/BAEA_CTT/Import_Deployed_Recent.py')
+    system('python C:/Work/Python/Scripts/cttpy/Import_Deployed_Recent.py')
     writeLines(noquote("Downloading recent data for deployed units from CTT"))
   }
   if (units == "reserve" && download == "all") {
-    system('python C:/Work/Python/Scripts/BAEA_CTT/Import_Reserve_All.py')
+    system('python C:/Work/Python/Scripts/cttpy/Import_Reserve_All.py')
     writeLines(noquote("Downloading all data for reserve units from CTT"))
   }
   if (units == "reserve" && download == "recent") {
-    system('python C:/Work/Python/Scripts/BAEA_CTT/Import_Reserve_Recent.py')
+    system('python C:/Work/Python/Scripts/cttpy/Import_Reserve_Recent.py')
     writeLines(noquote("Downloading recent data for reserve units from CTT"))
   }
   if (units == ""  | units == "none") {
     writeLines(noquote("Not downloading data from CTT"))
   }
+}
+
+
+#' Imports 'baea' data
+#'
+#' Imports baea.csv and merges with existing data
+#'
+#' @usage ImportBAEA(existing, import, tz)
+#'
+#' @param existing Dataframe, exisiting file to merge with baea. Can be NULL.
+#'   Default is "deployed".
+#' @param import Logical, whether or not to import baea.csv file. Default is
+#'   TRUE.
+#' @param tz String, timezone. Default is "Etc/GMT+5".
+#'
+#' @return Merged baea dataframe is returned. Also, writes new "baea.csv" file.
+#' @export
+#'
+#' @details Directory defaults are specific to my computer
+#'
+ImportBAEA <- function(existing = deployed,
+                       import = TRUE) {
+   if (import == TRUE) {
+    baea <- readRDS("Data/BAEA/baea.rds")
+    if (!is.null(existing)) {
+      max(baea$date)
+      max(existing$date)
+      existing <- subset(existing, date > (as.Date(max(baea$date)) -
+        lubridate::days(3)))
+      baea <- subset(baea, date <= (as.Date(max(baea$date)) -
+        lubridate::days(3)))
+      max(baea$date)
+      min(existing$date)
+    # 3 days are removed from baea to ensure that AddSegmentTimeLength, etc. was
+    # done on a full dataset. The baea and existing datasets should not overlap.
+      if(!("sunrise" %in% colnames(existing))) {
+        existing <- AddSolarTimes(existing)
+      }
+      existing <- AddStepLengthAndAngles(existing)
+      existing <- AddStepTime(existing, by = "serial")
+      existing <- AddTimeStepProportion(existing)
+      existing <- AddFirstLastDistance(existing)
+      baea_full <- rbind(baea, existing)
+      baea_full <- dplyr::distinct(baea_full)
+      baea_full <- baea_full[with(baea_full,order(id,datetime)),]
+      row.names(baea_full) <- NULL
+      date <- Sys.Date()
+      outfile <- paste("C:/Work/R/Data/BAEA/Archive/BAEA_", date, ".csv",
+        sep ="")
+      if (!file.exists(outfile)) {
+        writeLines(noquote(paste("Merging existing and import")))
+        write.csv(baea_full, file=outfile, row.names=FALSE)
+        writeLines(noquote(c("Writing: ", outfile, sep = "")))
+      }
+      saveRDS(baea_full, "Data/BAEA/BAEA.rds")
+        # rewrites import file
+      writeLines(noquote(
+        "Writing: \"Data/BAEA/BAEA.rds\""))
+      baea <- baea_full
+    }
+  }
+  if (import == FALSE) {
+  writeLines(noquote(paste("baea.rds was NOT imported")))
+    if (!is.null(existing)) {
+      if(!("sunrise" %in% colnames(existing))) {
+        existing <- AddSolarTimes(existing)
+      }
+      existing <- AddStepLengthAndAngles(existing, by = "id")
+      existing <- AddStepTime(existing, by = "id")
+      existing <- AddTimeStepProportion(existing)
+      existing <- AddFirstLastDistance(existing)
+      writeLines(noquote(paste("Coverted existing to baea", sep="")))
+      baea <- existing
+      } else {
+        writeLines(noquote("Nothing imported or converted"))
+      }
+  }
+  return(baea)
 }
 
 #' Import units
@@ -434,45 +556,26 @@ DownloadCTT <- function(units="",
 #' @export
 #'
 #' @details Defaults are specific to my file directories and locations
+#'
 ImportUnits <- function(units = "deployed",
                         existing = NULL,
                         import = TRUE) {
   if (import == TRUE) {
-    units_import <- read.csv(file = paste("C:/Work/R/Data/BAEA/Telemetry/",
-      units, "/", units, ".csv", sep =""), header=TRUE, stringsAsFactors=FALSE)
-    units_import$datetime <- as.POSIXct(units_import$datetime,
-      tz="Etc/GMT+5", usetz=FALSE) #convert to POSIXct in EST
+    rds_file  <- paste0(getwd(), "/Data/CTT/", units, "/", units, ".rds")
+    units_import <- readRDS(rds_file)
     if (!is.null(existing)) {
-      units_merge <- rbind(existing, units_import)
-      units_full <- unique(units_merge)
+      units_full <- unique(rbind(existing, units_import))
       units_full <- units_full[with(units_full,order(id,datetime)),]
       row.names(units_full) <- NULL
       date <- Sys.Date()
-      outfile <- paste("C:/Work/R/Data/BAEA/Telemetry/", units, "/Archive/",
-        units, "/", units, "_", date, ".csv", sep ="")
-      if (!file.exists(outfile)) {
-        writeLines(noquote(paste("Merging existing and import")))
-        write.csv(units_full, file=outfile, row.names=FALSE)
-        writeLines(noquote(c("Writing: ", outfile, sep = "")))
-        units_full_rewrite<-paste("C:/Work/R/Data/BAEA/Telemetry/", units,
-          "/", units, ".csv", sep ="")
-        write.csv(units_full, file=units_full_rewrite, row.names=FALSE)
-          # rewrites import file
-      }
     } else {
       units_full <- units_import
-      date_cols<- c("date","on_hand","deployed", "end_data",  "failed",
-        "removed", "recovered")  # corresponds to list in CompileDownloads
-      for (i in date_cols) {
-        units_full[,i] <- as.character(units_full[,i])
-        units_full[,i] <- as.Date(units_full[,i], "%Y-%m-%d")
-      }
     }
   }
   if (import == FALSE) {
     writeLines(noquote(paste("Previous records NOT imported")))
     if (!is.null(existing)) {
-      writeLines(noquote(paste("Coverted existing to output", sep="")))
+      writeLines(noquote(paste("Coverted existing to output.")))
       units_full <- existing
     }
   }
@@ -506,6 +609,83 @@ Plot3DInteractive <- function(df = baea,
   rgl::plot3d(xyz, aspect=c(1, 1, .5), col = "darkblue",
          xlab = "longitude", ylab = "latitude", zlab = "elevation(m)")
   rgl::lines3d(xyz, color="red")
+}
+
+#' Plot raster displaying distances from center cell
+#'
+#' Plot a raster showing the cell distances and max_r based on cell size
+#'
+#' @usage PlotRasterCenterCellDistances(max_r, cellsize, col)
+#'
+#' @param cellsize raster cell size
+#' @param max_r maximum circular radius from center cell
+#' @param col color palette for base raster, default is "Spectral" from the
+#'   'RColorBrewer' package. Must have same number of colors as the number of
+#'   breaks as the data (i.e., ceiling(max_r/cellsize)).
+#' @param label_size numeric, cell label size, default is 4.
+#' @return plot of cells
+#'
+#' @import ggplot2
+#'
+#' @export
+#'
+#' @examples
+#' PlotRasterCenterCellDistances(cellsize = 15, max_r = 90)
+#' PlotRasterCenterCellDistances(cellsize = 15, max_r = 90, col = rainbow(6))
+#' PlotRasterCenterCellDistances(cellsize = 15, max_r = 95, col = rainbow(7))
+#'
+PlotRasterCenterCellDistances <- function (cellsize,
+                                           max_r,
+                                           col = NULL,
+                                           label_size = 4){
+  max_r_cells <- ceiling(max_r/cellsize)
+  size <- max_r_cells * 2 + 1
+  center <- max_r_cells + 1
+  kernel <- new("matrix", NA, size, size)
+  for (i in 1:size) for (j in 1:size) {
+    r = sqrt((i - center)^2 + (j - center)^2) * cellsize
+    if (r <= max_r)
+      kernel[i, j] <- r
+  }
+  r <- (cellsize*((nrow(kernel)-1)/2))+(cellsize/2)
+  kernel_raster <- raster::raster(kernel, xmn=-r, xmx=r, ymn=-r, ymx=r)
+  kernel_raster_df <- data.frame(raster::rasterToPoints(kernel_raster))
+  colnames(kernel_raster_df)[3] <- "Distance"
+  breaks <- c(seq(0, ceiling(max_r_cells*cellsize), by=cellsize))
+  kernel_raster_df$colcode <- cut(kernel_raster_df$Distance, breaks=breaks,
+    include.lowest=TRUE)
+  n_colcode <- length(breaks)-1
+  if(is.null(col)) {
+    if(n_colcode <= 11){
+      col <- RColorBrewer::brewer.pal(n_colcode, "Spectral")
+    } else {
+      col <- rev(colorRampPalette(RColorBrewer::brewer.pal(11,"Spectral"))
+        (n_colcode))
+    }
+  } else {
+    if (length(col) > length(breaks)-1){
+      col <-colorRampPalette(col)(n_colcode)
+    }
+  }
+  circles <- data.frame(x0 = 0, y0 =  0, r = rev(seq(cellsize,
+    (n_colcode)*cellsize, by=cellsize)))
+  df <- kernel_raster_df[!is.na(kernel_raster_df$colcode),]
+  g <- ggplot(df, aes(x=x, y=y)) +
+    geom_raster(aes(fill=colcode)) +
+    coord_fixed(ratio = 1) +
+    ggforce::geom_circle(data = circles, aes(x0=x0, y0=y0, r=r,
+      color=factor(r)), size=1, inherit.aes = FALSE) +
+    scale_fill_manual(name = "Distance", values=col, drop=FALSE) +
+    scale_color_manual(values=col, guide = FALSE) +
+    xlab("X") + ylab("Y") +
+    coord_fixed(ratio = 1) +
+    theme(text=element_text(size=20, colour="black")) +
+    theme(axis.text=element_text(colour="black")) +
+    theme(axis.title.x = element_text(angle = 0, vjust = 0, hjust=0.5)) +
+    theme(axis.title.y = element_text(angle = 0, vjust = 0.5, hjust=0.5)) +
+    geom_text(data = kernel_raster_df, aes(x=x, y=y,
+      label = round(Distance, 1)), size=label_size, inherit.aes = FALSE)
+  g
 }
 
 #' Plot location counts
@@ -896,6 +1076,74 @@ SummarizeDailyLocations <- function(df = df){
   return(sumstats_filled)
 }
 
+#' Creates and emails weekly .kml data
+#'
+#' Creates weekly .kml file, and sends an email with that .kml file.
+#'
+#' @param data Dataframe of deployed data.
+#' @param send_email Logical, whether or not to send an email, default is TRUE.
+#' @param date Date within week to update, default is now().
+#' @param to String, recipients of email, default: c("erynn.call@maine.gov",
+#'   "charlie.todd@maine.gov").
+#'
+#' @return Creates files in "C:/Work/R/Data/BAEA/Telemetry" and
+#' @importFrom magrittr "%>%"
+#' @export
+#'
+#' @details Specific to my Bald Eagle Project.
+SendWeeklyData <- function(data = data,
+                             send_email = TRUE,
+                             date = now(),
+                             to = c("erynn.call@maine.gov",
+                                   "charlie.todd@maine.gov")){
+  data <- data
+  date <- as.POSIXct(date)
+  # Update local individual files
+  ExportTelemetryKMLByYear(data, update=TRUE)
+  # Copy individual files to Google Drive
+  kml_files <- list.files("Data/GPS/KMLs", full.names=TRUE)
+  output_dir = file.path("C:/Users/Blake/Google Drive/PhD Program/BAEA Project",
+    "Telemetry Data/Individuals/KMLs")
+  file.copy(kml_files, output_dir)
+  # Filter data to current week
+  start_date <- as.character(floor_date(date-period(1, "day"), "week"))
+  end_date <- as.character(ceiling_date(date-period(1, "day"), "week"))
+  deployed <- FilterLocations(df=deployed_all, id="id", individual="",
+    start=start_date, end=end_date)
+  # Export KML of Locations
+  ExportKMLTelemetryBAEA(df=deployed, file="BAEA Data.kml")
+  kml_file <- "C:/Users/Blake/Desktop/BAEA Data.kml"
+  start_date2 <- gsub("-", "", start_date)
+  end_date2 <- gsub("-", "", end_date)
+  kml_output <- file.path(input_dir_all, "KMLs", paste0("BAEA_Data", "_",
+    start_date, "_", end_date, ".kml"))
+  file.copy(kml_file, kml_output)
+  file.copy(kml_output, file.path(output_dir_all, "KMLs"))
+  if (send_email == TRUE) {
+    library(rJava)
+    library(mailR)
+    attachments <- kml_output
+    mailr_file <- read.csv("Data/MailR/mailR.csv", header=FALSE,
+      stringsAsFactors=FALSE)
+    body <- paste0("Erynn,", "\n\n", "Attached is a KML file of the available ",
+      "Bald Eagle GPS location data for ", start_date, " to ", end_date, ".\n",
+      "\n", "Additional locations for this period may be added when new data ",
+      "becomes available. For the most complete datasets, please refer to the ",
+      "compiled individual data located on Google Drive at:",
+      "Telemetry Data.", "\n",
+      "\n", "Thanks,", "\n", "Blake", "\n\n\n", "Blake Massey", "\n",
+      "PhD Student", "\n", "University of Massachusetts", "\n",
+      "Department of Environmental Conservation", "\n", "160 Holdsworth Way",
+      "\n", "Amherst, MA 01003", "\n", "bhmassey@eco.umass.edu","\n",
+      "928-254-9221 (cell)")
+    subject <- paste("BAEA GPS Data:", start_date, "to", end_date)
+    send.mail(from=mailr_file[1,2], to=to, subject=subject, body=body,
+      smtp = list(host.name="smtp.gmail.com", port=465, user.name="blakemassey",
+      passwd=mailr_file[1,3], ssl=TRUE), attach.files=attachments,
+      authenticate=TRUE, send=TRUE)
+  }
+}
+
 #' Summarize locations
 #'
 #' Calculates summarize stats for altitude, speed, moving and total locations
@@ -930,7 +1178,7 @@ SummarizeLocations <- function(df = df,
     sumstats_filled<-rbind(sumstats_filled,merged_frame)
   }
   sumstats <- sumstats_filled
-  write.csv(sumstats, "C:/Work/R/Data/Output/Summary Stats.csv",
+  write.csv(sumstats, "Data/Output/Summary Stats.csv",
     row.names = FALSE)
   if (pdf == TRUE){
     maxrow = 30

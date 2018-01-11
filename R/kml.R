@@ -961,6 +961,8 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
 #' @param output_dir output folder location, default is getwd()
 #'
 #' @return KML of points
+#'
+#' @importFrom magrittr "%>%"
 #' @export
 #'
 ExportKMLPoints <- function (df,
@@ -982,9 +984,6 @@ ExportKMLPoints <- function (df,
                              labelscale = 0,
                              file = NULL,
                              output_dir = NULL) {
-  suppressPackageStartupMessages(require(lubridate))
-  suppressPackageStartupMessages(require(plotKML))
-  suppressPackageStartupMessages(require(tools))
   if (is.null(output_dir) == TRUE) {
     if (!is.null(file)) {
       outfile <- file.path(getwd(), file)
@@ -1001,12 +1000,12 @@ ExportKMLPoints <- function (df,
   if (file_ext(outfile) == "") {
     outfile <- paste0(outfile, ".kml")  # if object has no extension
   }
-  df <- df
-  df$id <- df[ ,id]
+  df <- as.data.frame(df)
+  df$id <- df[ ,id] #
   df$lat <- df[ ,lat]
   df$long <- df[ ,long]
   if (!is.null(alt)){
-    df$desc_alt <- df[ ,alt]  # writes altitude to the "alt" column
+    df$desc_alt <- df[ ,alt] %>% #dplyr::pull()  # writes alti to the "alt" col
     alt1 <- '\t\t\t\t\tAltitude: '  # first part of "Altitude" description
     alt2 <- '\n'  # second part of "Altitude" description
   } else {
@@ -1060,7 +1059,7 @@ ExportKMLPoints <- function (df,
   point_colors <- sapply(point_colors, col2kml)
   if (!is.null(point_color)) point_colors[] <- col2kml(point_color)
   point_colors <- sapply(point_colors, substring, 4, 9)
-  df$point_col_var <- df[,point_col_var]
+  df$point_col_var <- df[, point_col_var]
   hi_icon_label_scale <- 0.75
   icon_scale <- 0.7
   hi_icon_label_scale <- 0.75
@@ -1111,23 +1110,22 @@ ExportKMLPoints <- function (df,
       "\t</StyleMap>\n",
       file = outfile, append = TRUE, sep = "")
   }
-  ids <- as.character(unique(df$id))  # as.character removes factor levels
-  for (i in ids) {
-    sv = df$id %in% i
-    unique_id <- as.character(unique(df$id[sv]))
+  ids <- unique(df$id)  # as.character removes factor levels
+  for (i in 1:length(ids)) {
+    id_i <- ids[i]
 #    cat("<Folder>\n","<name>",unique_id,"</name>\n","<open>0</open>\n",
 #      file = outfile, append = TRUE, sep = "")
 #    cat("\t<Folder>\n","\t<name>",unique_id,"</name>\n",
 #      "\t<open>0</open>\n", file = outfile, append = TRUE, sep = "")
-    locs <- subset(df, id == unique_id)
-    for (i in 1:nrow(locs)){
-      loc <- locs[i,]
-      Xs <- loc[, "long"]
-      Ys <- loc[, "lat"]
-      Zs <- loc[, "alt"]
-      ZDs <- loc[, "desc_alt"]
-      PSs <- loc[, "point_col_var"]
-      IDs <- unique_id
+    locs <- df %>% dplyr::filter(id == id_i)
+    for (j in 1:nrow(locs)){
+      loc <- locs[j,]
+      Xs <- loc$long
+      Ys <- loc$lat
+      Zs <- loc$alt
+      ZDs <- loc$desc_alt
+      PSs <- loc$point_col_var
+      IDs <- id_i
       PlacemarkPoint(Xs, Ys, Zs, ZDs, PSs, IDs)
     }
 #    cat("\t</Folder>\n", file = outfile, append = TRUE, sep = "")
@@ -1266,23 +1264,23 @@ ExportKMLTelemetry <- function (df,
   if (file_ext(outfile) == "") {
     outfile <- paste0(outfile, ".kml")  # if object has no extension
   }
-  df <- df
-  df$id <- df[ ,id]
-  df$lat <- df[ ,lat]
-  df$long <- df[ ,long]
+  df <- as.data.frame(df)
+  df[, "id"] <- df[, id]
+  df[, "lat"] <- df[, lat]
+  df[, "long"] <- df[, long]
   if(!"sex" %in% colnames(df))  df$sex <- NA
   if (!is.null(alt)){
-    df$desc_alt <- df[ ,alt]  # writes altitude to the "alt" column
+    df[, "desc_alt"] <- df[, alt]  # writes altitude to the "alt" column
     alt1 <- '\t\t\t\t\tAltitude: '  # first part of "Altitude" description
     alt2 <- '\n'  # second part of "Altitude" description
   } else {
-    df$alt <- 0  # makes the altitude column a vector of NA
-    df$desc_alt <- ""  # makes the altitude description blank values
+    df[, "alt"] <- 0  # makes the altitude column a vector of NA
+    df[, "desc_alt"] <- ""  # makes the altitude description blank values
     alt1 <- NULL  # prevents "Altitude" description from being written
     alt2 <- NULL  # prevents "Altitude" description from being written
   }
   if (!is.null(agl)) {
-    df$desc_agl <- df[ ,agl]
+    df[, "desc_agl"] <- df[, agl]
     agl1 <- '\t\t\t\t\tAGL: '  # first part of the "Altitude" description
     agl2 <- '\n'  # second part of "Altitude" description
   } else {
@@ -1291,7 +1289,7 @@ ExportKMLTelemetry <- function (df,
     agl2 <- NULL  # prevents "Altitude Above Ground Level" from being written
   }
   if (!is.null(speed)) {
-    df$desc_speed <- df[,speed]  # writes speed to the "speed" column
+    df$desc_speed <- df[, speed]  # writes speed to the "speed" column
     spd1 <- '\t\t\t\t\tSpeed: '  # writes first part of the "Speed" description
     spd2 <- '\n'  # writes second part of the "Speed" description
   } else {
@@ -1300,7 +1298,7 @@ ExportKMLTelemetry <- function (df,
     spd2 <- NULL  # prevents "Speed" description from being written
   }
   if (!is.null(behavior)) {
-    df$desc_behavior <- df[,behavior]  # writes behavior to "behavior" column
+    df$desc_behavior <- df[, behavior]  # writes behavior to "behavior" column
     beh1 <- '\t\t\t\t\tBehavior: '  # first part of the "Behavior" description
     beh2 <- '\n'  # second part of the "Behavior" description
   } else {
@@ -1369,7 +1367,7 @@ ExportKMLTelemetry <- function (df,
   append = FALSE, sep = "")
   ## Icon Style Section ##
   if (is.null(point_color)) point_color <- id
-  df$point_color <- df[ ,point_color]
+  df[, "point_color"] <- df[, point_color]
   if (!is.null(point_metadata)) {
     point_colors <- CreateColorsByMetadata(file=point_metadata,
       metadata_id=point_color)
@@ -1387,7 +1385,7 @@ ExportKMLTelemetry <- function (df,
   }
   point_colors <- sapply(point_colors, col2kml)
   point_colors <- sapply(point_colors, substring, 4, 9)
-  df$point_color <-df[,point_color]
+  df[, "point_color"] <- df[, point_color]
   icon_scale <- 0.7
   hi_icon_label_scale <- 0.75
   ball_bg_color <- "ff333333"
@@ -1544,7 +1542,7 @@ ExportKMLTelemetry <- function (df,
       SXs <- loc[, "sex"]
       PSs <- loc[, "point_color"]
       IDs <- unique_id
-      SDs <- substring(loc$datetime, 1,10) #start date
+      SDs <- substring(loc$datetime, 1, 10) #start date
       STs <- substring(loc$datetime, 12,16) #start time
       EDs <- substring(loc$datetimeend, 1,10) #end date
       ETs <- substring(loc$datetimeend, 12,19) #end time
@@ -1566,7 +1564,37 @@ ExportKMLTelemetry <- function (df,
     ifelse(icon_by_sex == TRUE, path_id <- paste0(unique_id, "-",
       unique(locs$sex)), path_id <- unique_id)
     bloc2 <- NULL
-    if (path == TRUE) {
+    if (path == TRUE && "path_seg" %in% colnames(locs)){
+      whens <- locs[, c("datetimedate","Ts","datetimetime", "Zs", "path_seg")]
+      sgmts <- locs[, c("long","lat","alt", "path_seg")]
+      tracks <- NULL
+      for (i in unique(whens$path_seg)){
+        whens_i <- whens %>% dplyr::filter(path_seg == i) %>%
+          dplyr::select(-c(path_seg))
+        sgmts_i <- sgmts %>% dplyr::filter(path_seg == i) %>%
+          dplyr::select(-c(path_seg))
+        tracks <- paste0(tracks, "\t\t<gx:Track>\n",
+          "\t\t<altitudeMode>",alt_mode,"</altitudeMode>\n",
+          paste(paste("\t\t\t\t\t<when>", apply(whens_i, 1, paste, collapse=""),
+            sep=""), "</when>", collapse="\n"), "\n",
+          paste(paste("\t\t\t\t\t<gx:coord>", apply(sgmts_i, 1, paste,
+            collapse=" "), sep = ""),"</gx:coord>", collapse = "\n"), "\n",
+          "\t\t</gx:Track>\n")
+      }
+      bloc2 <- c(bloc2, paste(
+        "\t<Placemark>\n",
+        "\t\t<name>",unique_id," - Path</name>\n",
+        "\t\t<styleUrl>#Track_",path_id,"</styleUrl>\n",
+        "\t\t<gx:balloonVisibility>0</gx:balloonVisibility>\n",
+        "\t\t<gx:MultiTrack>\n",
+        tracks,
+        "\t\t</gx:MultiTrack>\n",
+        "\t</Placemark>\n",
+        sep = ""))
+    }
+    if (path == TRUE && !"path_seg" %in% colnames(locs)) {
+      whens <- locs[, c("datetimedate","Ts","datetimetime", "Zs")]
+      sgmts <- locs[, c("long","lat","alt")]
       bloc2 <- c(bloc2, paste(
         "\t<Placemark>\n",
         "\t\t<name>",unique_id," - Path</name>\n",
@@ -1574,10 +1602,10 @@ ExportKMLTelemetry <- function (df,
         "\t\t<gx:balloonVisibility>0</gx:balloonVisibility>\n",
         "\t\t<gx:Track>\n",
         "\t\t<altitudeMode>",alt_mode,"</altitudeMode>\n",
-      paste(paste("\t\t\t\t\t<when>", apply(whens, 1, paste, collapse=""),
-        sep=""), "</when>", collapse="\n"), "\n",
-      paste(paste("\t\t\t\t\t<gx:coord>", apply(sgmts, 1, paste, collapse=" "),
-        sep = ""),"</gx:coord>", collapse = "\n"),"\n",
+        paste(paste("\t\t\t\t\t<when>", apply(whens, 1, paste, collapse=""),
+          sep=""), "</when>", collapse="\n"), "\n",
+        paste(paste("\t\t\t\t\t<gx:coord>", apply(sgmts, 1, paste, collapse=" "),
+          sep = ""),"</gx:coord>", collapse = "\n"),"\n",
         "\t\t</gx:Track>\n",
         "\t</Placemark>\n",
         sep = ""))
@@ -1627,7 +1655,7 @@ ExportKMLTelemetry <- function (df,
 #' @param point_metadata location of metadata .csv file. Metadata file must
 #'   have a column that matches name of 'point_color'parameter and "icon_color"
 #'   column with hexadecimal colors. Default is:
-#'   "C:/Work/R/Data/BAEA/GPS_Deployments.csv".
+#'   "Data/GPS/GPS_Deployments.csv".
 #' @param point_pal name of color palette funtions (e.g., rainbow, heat.colors,
 #'   terrain.colors, topo.colors, cm.colors used to create colors. This
 #'   parameter has priority over the other point color palette parameters.
@@ -1647,7 +1675,7 @@ ExportKMLTelemetry <- function (df,
 #' @param path_metadata Location of metadata .csv file. Metadata file must have
 #'   a column that matches name of 'path_color' parameter and an "icon_color"
 #'   column with hexadecimal colors. Default is:
-#'   "C:/Work/R/Data/BAEA/GPS_Deployments.csv".
+#'   "Data/GPS/GPS_Deployments.csv".
 #' @param path_pal Name of color palette funtions (e.g., rainbow, heat.colors,
 #'   terrain.colors, topo.colors, cm.colors used to create colors. This
 #'   parameter has priority over the other point color palette parameters.
@@ -1689,16 +1717,16 @@ ExportKMLTelemetryBAEA <- function (df,
                                     agl = NULL,
                                     behavior = NULL,
                                     point_color = "deploy_location",
-                                    point_metadata = file.path("C:/Work/R",
-                                      "Data/BAEA/GPS_Deployments.csv"),
+                                    point_metadata = file.path("Data/GPS",
+                                      "GPS_Deployments.csv"),
                                     point_pal = NULL,
                                     point_r_pal = NULL,
                                     point_b_pal = "Set1",
                                     extrude = FALSE,
                                     path = TRUE,
                                     path_color = "deploy_location",
-                                    path_metadata = file.path("C:/Work/R",
-                                      "Data/BAEA/GPS_Deployments.csv"),
+                                    path_metadata = file.path("Data/GPS",
+                                      "GPS_Deployments.csv"),
                                     path_pal = NULL,
                                     path_r_pal = NULL,
                                     path_b_pal = NULL,
@@ -1711,10 +1739,10 @@ ExportKMLTelemetryBAEA <- function (df,
                                     file = "BAEA Data.kml",
                                     output_dir = "C:/Users/Blake/Desktop") {
   if (point_color == "behavior" || point_color == "sex") {
-      point_metadata = "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv"
+      point_metadata = "Data/Models/Behavior_Colors.csv"
   }
   if (!is.null(path_color) &&  path_color == "sex") {
-      path_metadata = "C:/Work/R/Data/BAEA/Models/Behavior_Colors.csv"
+      path_metadata = "Data/Models/Behavior_Colors.csv"
   }
   gisr::ExportKMLTelemetry(df=df, id=id, datetime=datetime, lat=lat, long=long,
     alt=alt, alt_mode=alt_mode, speed=speed, agl=agl, behavior=behavior,
@@ -1746,13 +1774,11 @@ ExportKMLTelemetryBAEA <- function (df,
 #'
 #' @details Defaults are specific to my file directories and locations
 #'
-ExportKMLWindProjects <- function(df = file.path("C:/Work/R/Data",
-                                    "Turbines/Maine Wind Projects.csv"),
+ExportKMLWindProjects <- function(df = "Data/Turbines/Maine Wind Projects.csv",
                                   labelscale = 0,
-                                  outfile = file.path("C:/Users/Blake/Desktop",
+                                  outfile = file.path("Data/Turbines/",
                                     "Maine Wind Projects.kml"),
-                                  metadata = file.path("C:/Work/R/Data/",
-                                    "Turbines/Project_records.csv")) {
+                                  metadata="Data/Turbines/Project_records.csv"){
   PointFunction <- function(project_name, developer, status, model,
                              num_turbine, total_mw, hub_height, rotor_diam,
                              rotor_top, rotor_btm, X, Y) {
@@ -1909,13 +1935,12 @@ ExportKMLWindProjects <- function(df = file.path("C:/Work/R/Data",
 #'
 #' @details Defaults are specific to my file directories and locations
 #'
-ExportKMLWindTurbines <- function (df = file.path("C:/Work/R/Data",
-                                     "Turbines/Maine Wind Turbines.csv"),
+ExportKMLWindTurbines <- function (df = "Data/Turbines/Maine Wind Turbines.csv",
                                    labelscale = 0,
                                    outfile = file.path("C:/Users/Blake/Desktop",
                                      "Maine Wind Turbines.kml"),
-                                   metadata = file.path("C:/Work/R/Data",
-                                     "Turbines/Turbine_records.csv")) {
+                                   metadata = file.path("Data/Turbines",
+                                     "Turbine_records.csv")) {
   PointFunction <- function(plname, X, Y, pad, model, hub, rotor, sweep_top,
                              sweep_btm, XP, XN, YP, YN) {
     cat("\t<Placemark>\n",
@@ -2101,7 +2126,58 @@ ExportKMLWindTurbines <- function (df = file.path("C:/Work/R/Data",
   cat("</Document>\n</kml>", file = outfile, append = TRUE)
 }
 
-#' ZipKML
+#' Creates or updates .kml files of each individual by year
+#'
+#' Creates and updates year KML files on local and GDrive folders.
+#'
+#' @param data Dataframe of location data.
+#' @param update_only  Logical, whether or not to just update current year's
+#'   data. Default is TRUE.
+#' @param update_gdrive Logical, whether to update the files on the GDrive.
+#'   Default is TRUE.
+#'
+#' @return Creates .kml files in "Data/GPS" and copies them to
+#'   "Google Drive/BAEA Project/Telemetry Data/Individuals" folders.
+#' @export
+UpdateIndByYearKMLs <- function(data,
+                                update_only = TRUE,
+                                update_gdrive = TRUE){
+  data <- data
+  # Update local individual files
+  data <- data
+  ids <- unique(data$id)
+  current_year <- year(now())
+  for (i in  1:length(ids)){
+    id <- ids[i]
+    df <- data[data$id == id,]
+    if(update_only == TRUE){
+      df_year <- df[df$year == current_year,]
+      if (nrow(df_year) > 1){
+        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", current_year,
+          ".kml"), output_dir = "Data/GPS/KMLs")
+      }
+    } else {
+      years <- year(first(df$datetime)):year(last(df$datetime))
+      for (j in 1:length(years)){
+        year <- years[j]
+        df_year <- df[df$year == year,]
+        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", year, ".kml"),
+          output_dir = "Data/GPS/KMLs")
+      }
+    }
+  }
+  if (update_gdrive == TRUE){
+    # Copy individual files to Google Drive
+    kml_files <- list.files("Data/GPS/KMLs", full.names=TRUE)
+    if (update_only) kml_files <- stringr::str_subset(kml_files,
+      as.character(current_year))
+    output_dir = file.path("C:/Users/Blake/Google Drive/PhD Program",
+      "BAEA Project/Telemetry Data/Individuals")
+    file.copy(kml_files, output_dir, overwrite=TRUE)
+  }
+}
+
+#' Zips KML
 #'
 #' Zip a kml file
 #'
@@ -2136,3 +2212,4 @@ ZipKML <- function(kml,
 		return(invisible(kml))
 	}
 }
+

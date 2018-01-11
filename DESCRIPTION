@@ -12,6 +12,7 @@ LazyData: true
 Imports:
   circular,
   CircStats,
+  ggforce,
   ggplot2,
   graphics,
   grid,  
@@ -28,5 +29,6 @@ Imports:
   RColorBrewer,
   rgdal,
   scales,
-  sp
+  sp,
+  tools
 RoxygenNote: 6.0.1

@@ -16,7 +16,7 @@ AddLandscapeValues(df, raster_stack, long, lat, clean_up)
 \item{lat}{column name of latitude data, default = long_utm}
 
 \item{clean_up}{logical, will run a series of steps to clean up the returned
-output (e.g. removing "_50mc" from column names and deleting unneeded
+output (e.g. removing "_30mc" from column names and deleting unneeded
 landcover "definition" column).}
 }
 \value{

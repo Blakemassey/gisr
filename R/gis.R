@@ -1,3 +1,28 @@
+#' Adds elevation data to locations dataframe
+#'
+#' Adds the cell values from an elevation rasters to an input locations and
+#'   calculates the 'agl' (above ground level) of the locations.
+#'
+#' @usage AddElevationData(df, long, lat)
+#' @param df dataframe of location data
+#' @param long column name of longitude data, default = lat_utm
+#' @param lat column name of latitude data, default = long_utm
+#'
+#' @return The original locations df with additional landscape data columns.
+#' @details The locations dataset and elevation data must have the same CRS.
+#' @export
+#'
+AddElevationData <- function(df,
+                             long = "long_utm",
+                             lat = "lat_utm"){
+  df <- df
+  elev_30mc <-raster::raster("C:/ArcGIS/Data/Elevation/Elevation/elev_30mc.tif")
+  locs_xy <- cbind(df[,long], df[,lat])
+  df[, "elev"] <- raster::extract(elev_30mc, locs_xy)
+  df$agl <- df$alt - df$elev
+  return(df)
+}
+
 #' Adds landscape data to dataframe
 #'
 #' Adds the cell values from a list of landscape rasters to an input locations
@@ -9,7 +34,7 @@
 #' @param long column name of longitude data, default = lat_utm
 #' @param lat column name of latitude data, default = long_utm
 #' @param clean_up logical, will run a series of steps to clean up the returned
-#'   output (e.g. removing "_50mc" from column names and deleting unneeded
+#'   output (e.g. removing "_30mc" from column names and deleting unneeded
 #'   landcover "definition" column).
 #'
 #' @return The original locations df with additional landscape data columns.
@@ -40,10 +65,6 @@ AddLandscapeValues <- function(df,
     col_names_list <- append(col_names_list, col_name)
   }
   if (clean_up == TRUE){
-    if ("elev" %in% colnames(df)){
-      df$agl <- df$alt - df$elev
-      col_names_list <- append(col_names_list, "agl")
-    }
     if ("lc" %in% colnames(df)) {
       nlcd_classes <- read.csv(file.path("C:/ArcGIS/Data/Landcover",
         "NCLD_Landcover_Class_Definitions.csv"), header=TRUE, as.is=TRUE,
@@ -918,7 +939,7 @@ ExportShapefileFromPoints <- function(df = df,
                                       lat = "lat",
                                       long = "long",
                                       name = "baea",
-                                      folder = "C:/Work/R/Data/Output",
+                                      folder = "Data/Output",
                                       crs = "+proj=longlat +datum=WGS84",
                                       overwrite = FALSE){
   xy <- (cbind(df[,long], df[,lat]))
@@ -952,7 +973,6 @@ ImportLandscapeRasterStack <- function(){
     "hydro_dir_30mc.tif"))
   hydro_dist_30mc <- raster(file.path("C:/ArcGIS/Data/Hydrology/NHD_rasters",
     "hydro_dist_30mc.tif"))
-  elev_30mc <- raster("C:/ArcGIS/Data/Elevation/Elevation/elev_30mc.tif")
   lc_30mc <- raster("C:/ArcGIS/Data/Landcover/Landcover/lc_30mc.tif")
   maine_30mc <- raster("C:/ArcGIS/Data/BlankRaster/maine_30mc.tif")
   turbine_30mc <- raster("C:/ArcGIS/Data/Wind/turbine_dist_30mc.tif")
@@ -1247,7 +1267,6 @@ Plot3DRaster <- function(raster,
 #' @return Prints a list of positions and names
 #' @export
 #'
-#' @details
 #'
 PrintRasterNames <- function(raster){
   raster <- raster

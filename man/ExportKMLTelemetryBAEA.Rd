@@ -48,7 +48,7 @@ Default is 'deploy_location".}
 \item{point_metadata}{location of metadata .csv file. Metadata file must
 have a column that matches name of 'point_color'parameter and "icon_color"
 column with hexadecimal colors. Default is:
-"C:/Work/R/Data/BAEA/GPS_Deployments.csv".}
+"Data/GPS/GPS_Deployments.csv".}
 
 \item{point_pal}{name of color palette funtions (e.g., rainbow, heat.colors,
 terrain.colors, topo.colors, cm.colors used to create colors. This
@@ -75,7 +75,7 @@ constructed for each id factor. Default is "deploy_location".}
 \item{path_metadata}{Location of metadata .csv file. Metadata file must have
 a column that matches name of 'path_color' parameter and an "icon_color"
 column with hexadecimal colors. Default is:
-"C:/Work/R/Data/BAEA/GPS_Deployments.csv".}
+"Data/GPS/GPS_Deployments.csv".}
 
 \item{path_pal}{Name of color palette funtions (e.g., rainbow, heat.colors,
 terrain.colors, topo.colors, cm.colors used to create colors. This

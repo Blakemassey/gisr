@@ -15,6 +15,3 @@ Prints a list of positions and names
 \description{
 Prints the position and name of the rasters in a RasterStack or RasterBrick
 }
-\details{
-
-}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/kml.R
 \name{ZipKML}
 \alias{ZipKML}
-\title{ZipKML}
+\title{Zips KML}
 \usage{
 ZipKML(kml, image)
 }
