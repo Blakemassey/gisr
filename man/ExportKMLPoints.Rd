@@ -4,8 +4,8 @@
 \alias{ExportKMLPoints}
 \title{ExportKMLPoints}
 \usage{
-ExportKMLPoints(df, id = "id", lat = "lat", long = "long", alt = NULL,
-  alt_mode = "clampToGround",
+ExportKMLPoints(df, id = "id", lat = "lat", long = "long",
+  alt = NULL, alt_mode = "clampToGround",
   icon_href = file.path("http://maps.google.com",
   "mapfiles/kml//paddle/wht-blank.png"), icon_scale = 0.7,
   point_col_var = NULL, point_color = NULL, point_metadata = NULL,

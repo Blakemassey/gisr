@@ -637,7 +637,7 @@ ExportKMLRaster <- function (object = object,
       }
       if (names(object[[i]]) == "lc_50mc") {
         categorical = TRUE
-        metadata = "C:/Work/R/Data/Mapping/lc_50mc.csv"
+        metadata = "C:/Work/R/projects/baea_ibm/Data/Assets/lc_50mc.csv"
         metadata_layer = "Land_Cover"
       }
       if (names(object[[i]]) == "maine_50mc") {
@@ -1248,6 +1248,7 @@ ExportKMLTelemetry <- function (df,
   suppressPackageStartupMessages(require(lubridate))
   suppressPackageStartupMessages(require(plotKML))
   suppressPackageStartupMessages(require(tools))
+  outfile_temp <- NA
   if (is.null(output_dir) == TRUE) {
     if (!is.null(file)) {
       outfile <- file.path(getwd(), file)
@@ -1322,14 +1323,15 @@ ExportKMLTelemetry <- function (df,
   df_split <- split(df, ids)  # divides data by ids
   df_split <- lapply(df_split, EndTimes)
   datetimeend <- unsplit(df_split, ids)  # returns array of returned values
-  df <- cbind(df, datetimeend)  # adds datetimeend column to original baea data
+  df <- cbind(df, datetimeend)  # adds datetime end column to original baea data
   ifelse(extrude == TRUE, extrude <- 1, extrude <- FALSE)
   PlacemarkPoint <- function(PN, X,  Y, Z, ZD,
                              AG, SP, BH, SX, PS,
                              ID, SD, ST, ED, ET,
                              DA, TM) {
     if (icon_by_sex == TRUE) PS <- paste0(PS,"-",SX)
-    cat("\t<Placemark>\n",
+    placemark <- paste0(
+      "\t<Placemark>\n",
       "\t\t<name>",PN, "</name>\n",
       "\t\t<TimeSpan>\n",
       "\t\t\t<begin>",SD ,"T" ,ST ,"</begin> " , "\n",
@@ -1353,18 +1355,17 @@ ExportKMLTelemetry <- function (df,
       "\t\t\t\t<altitudeMode>", alt_mode, "</altitudeMode>\n",
       "\t\t\t\t\t<coordinates>", X, ",", Y, ",", Z, "</coordinates>\n",
       "\t\t\t</Point>\n",
-      "\t</Placemark>\n",
-      file = outfile, append = TRUE, sep = "")
-    }
+      "\t</Placemark>\n")
+    return(placemark)
+  }
   if (file.exists(outfile)) file.remove(outfile)  # delete KML if already exists
   writeLines(noquote(c("Writing: ", outfile)))
   ## Title Section ##
-  cat("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
-  "<kml xmlns=\"http://www.opengis.net/kml/2.2\"\n",
-  "xmlns:gx=\"http://www.google.com/kml/ext/2.2\"\n",
-  "xmlns:atom=\"http://www.w3.org/2005/Atom\">\n\n",
-  "<Document>\n", "\t<name>",file,"</name>\n",file = outfile,
-  append = FALSE, sep = "")
+  title_section <- paste0("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+    "<kml xmlns=\"http://www.opengis.net/kml/2.2\"\n",
+    "xmlns:gx=\"http://www.google.com/kml/ext/2.2\"\n",
+    "xmlns:atom=\"http://www.w3.org/2005/Atom\">\n\n",
+    "<Document>\n", "\t<name>",file,"</name>\n")
   ## Icon Style Section ##
   if (is.null(point_color)) point_color <- id
   df[, "point_color"] <- df[, point_color]
@@ -1394,6 +1395,8 @@ ExportKMLTelemetry <- function (df,
     "track-directional/track-0.png")
   icon_href <- "http://maps.google.com/mapfiles/kml/shapes/placemark_square.png"
 
+  point_colors_section <- vector(mode = "character", 0)
+
   for (i in 1:length(point_colors)) {
     if (icon_by_sex == TRUE){
       if (grepl("male", names(point_colors)[i]) == TRUE)  icon_href <-
@@ -1401,7 +1404,8 @@ ExportKMLTelemetry <- function (df,
       if (grepl("female", names(point_colors)[i]) == TRUE) icon_href <-
         "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png"
     }
-    cat("\t<StyleMap id=\"Point_",names(point_colors)[i],"\">\n",
+    point_colors_section <- paste0(point_colors_section,
+      "\t<StyleMap id=\"Point_",names(point_colors)[i],"\">\n",
       "\t\t<Pair>\n",
       "\t\t\t<key>normal</key>\n",
       "\t\t\t\t<Style>\n",
@@ -1442,9 +1446,9 @@ ExportKMLTelemetry <- function (df,
       "\t\t\t\t\t</BalloonStyle>\n",
       "\t\t\t\t</Style>\n",
       "\t\t</Pair>\n",
-      "\t</StyleMap>\n",
-      file = outfile, append = TRUE, sep = "")
+      "\t</StyleMap>\n")
   }
+  point_colors_section <- paste0(point_colors_section, collapse = "")
   if (path ==TRUE) {
     if (is.null(path_color)) path_color <- id
     if (is.null(path_b_pal)) path_b_pal <- point_b_pal
@@ -1467,67 +1471,70 @@ ExportKMLTelemetry <- function (df,
     }
     ifelse(arrow == TRUE, arrow <- 1, arrow <- 0)
   ## Style Map for Track ##
+    path_colors_section <- vector(mode = "character", 0)
+
     for (i in 1:length(path_colors)) {
-      cat("\t<StyleMap id=\"Track_",names(path_colors)[i],"\">\n",
-      "\t\t<Pair>\n",
-      "\t\t\t<key>normal</key>\n",
-      "\t\t\t\t<Style>\n",
-      "\t\t\t\t\t<LabelStyle>\n",
-      "\t\t\t\t\t<scale>0</scale>\n",  # to show label
-      "\t\t\t\t\t</LabelStyle>\n",
-      "\t\t\t<IconStyle>\n",
-      "\t\t\t\t<scale>",arrow,"</scale>\n",
-      "\t\t\t\t<Icon>\n",
-      "\t\t\t\t\t<href>",mt_icon_href,"</href>\n",
-      "\t\t\t\t</Icon>\n",
-      "\t\t\t</IconStyle>\n",
-      "\t\t\t\t\t<BalloonStyle>\n",
-      "\t\t\t\t\t<text>",names(path_colors)[i]," - Path</text>\n",
-      "\t\t\t\t\t\t<bgColor>",ball_bg_color,"</bgColor>\n",
-      "\t\t\t\t\t\t<textColor>",ball_text_color,"</textColor>\n",
-      "\t\t\t\t\t</BalloonStyle>\n",
-      "\t\t\t<LineStyle>\n",
-      "\t\t\t\t<color>dd",path_colors[i],"</color>\n",
-      "\t\t\t\t<width>1</width>\n",
-      "\t\t\t</LineStyle>\n",
-      "\t\t\t\t</Style>\n",
-      "\t\t</Pair>\n",
-      "\t\t<Pair>\n",
-      "\t\t\t<key>highlight</key>\n",
-      "\t\t\t\t<Style>\n",
-      "\t\t\t\t\t<LabelStyle>\n",
-      "\t\t\t\t\t<scale>0</scale>\n",  # to show label, change value to >= 0.7
-      "\t\t\t\t\t</LabelStyle>\n",
-      "\t\t\t<IconStyle>\n",
-      "\t\t\t\t<scale>1</scale>\n",
-      "\t\t\t\t<Icon>\n",
-      "\t\t\t\t\t<href>",mt_icon_href,"</href>\n",
-      "\t\t\t\t</Icon>\n",
-      "\t\t\t</IconStyle>\n",
-      "\t\t\t\t\t<BalloonStyle>\n",
-      "\t\t\t\t\t<text>",names(path_colors)[i]," - Path</text>\n",
-      "\t\t\t\t\t\t<bgColor>",ball_bg_color,"</bgColor>\n",
-      "\t\t\t\t\t\t<textColor>",ball_text_color,"</textColor>\n",
-      "\t\t\t\t\t</BalloonStyle>\n",
-      "\t\t\t<LineStyle>\n",
-      "\t\t\t\t<color>ee",path_colors[i],"</color>\n",
-      "\t\t\t\t<width>1</width>\n",
-      "\t\t\t</LineStyle>\n",
-      "\t\t\t\t</Style>\n",
-      "\t\t</Pair>\n",
-      "\t</StyleMap>\n",
-      file = outfile, append = TRUE, sep = "")
+      path_colors_section <- paste0(path_colors_section,
+        "\t<StyleMap id=\"Track_",names(path_colors)[i],"\">\n",
+        "\t\t<Pair>\n",
+        "\t\t\t<key>normal</key>\n",
+        "\t\t\t\t<Style>\n",
+        "\t\t\t\t\t<LabelStyle>\n",
+        "\t\t\t\t\t<scale>0</scale>\n",  # to show label
+        "\t\t\t\t\t</LabelStyle>\n",
+        "\t\t\t<IconStyle>\n",
+        "\t\t\t\t<scale>",arrow,"</scale>\n",
+        "\t\t\t\t<Icon>\n",
+        "\t\t\t\t\t<href>",mt_icon_href,"</href>\n",
+        "\t\t\t\t</Icon>\n",
+        "\t\t\t</IconStyle>\n",
+        "\t\t\t\t\t<BalloonStyle>\n",
+        "\t\t\t\t\t<text>",names(path_colors)[i]," - Path</text>\n",
+        "\t\t\t\t\t\t<bgColor>",ball_bg_color,"</bgColor>\n",
+        "\t\t\t\t\t\t<textColor>",ball_text_color,"</textColor>\n",
+        "\t\t\t\t\t</BalloonStyle>\n",
+        "\t\t\t<LineStyle>\n",
+        "\t\t\t\t<color>dd",path_colors[i],"</color>\n",
+        "\t\t\t\t<width>1</width>\n",
+        "\t\t\t</LineStyle>\n",
+        "\t\t\t\t</Style>\n",
+        "\t\t</Pair>\n",
+        "\t\t<Pair>\n",
+        "\t\t\t<key>highlight</key>\n",
+        "\t\t\t\t<Style>\n",
+        "\t\t\t\t\t<LabelStyle>\n",
+        "\t\t\t\t\t<scale>0</scale>\n",  # to show label, change to >= 0.7
+        "\t\t\t\t\t</LabelStyle>\n",
+        "\t\t\t<IconStyle>\n",
+        "\t\t\t\t<scale>1</scale>\n",
+        "\t\t\t\t<Icon>\n",
+        "\t\t\t\t\t<href>",mt_icon_href,"</href>\n",
+        "\t\t\t\t</Icon>\n",
+        "\t\t\t</IconStyle>\n",
+        "\t\t\t\t\t<BalloonStyle>\n",
+        "\t\t\t\t\t<text>",names(path_colors)[i]," - Path</text>\n",
+        "\t\t\t\t\t\t<bgColor>",ball_bg_color,"</bgColor>\n",
+        "\t\t\t\t\t\t<textColor>",ball_text_color,"</textColor>\n",
+        "\t\t\t\t\t</BalloonStyle>\n",
+        "\t\t\t<LineStyle>\n",
+        "\t\t\t\t<color>ee",path_colors[i],"</color>\n",
+        "\t\t\t\t<width>1</width>\n",
+        "\t\t\t</LineStyle>\n",
+        "\t\t\t\t</Style>\n",
+        "\t\t</Pair>\n",
+        "\t</StyleMap>\n")
     }  # end of Track icon loop
   } # end of (path == TRUE)
-
+  path_colors_section <- paste0(path_colors_section, collapse = "")
   ids <- as.character(unique(df$id))  # as.character removes factor levels
+  id_section <- vector(mode = "character", 0)
   for (i in ids) {
     sv = df$id %in% i
     unique_id <- as.character(unique(df$id[sv]))
-    cat("<Folder>\n","<name>",unique_id,"</name>\n","<open>0</open>\n",
-      file = outfile, append = TRUE, sep = "")
-    cat("\t<Folder>\n","\t<name>",unique_id," - Locations</name>\n",
-      "\t<open>0</open>\n", file = outfile, append = TRUE, sep = "")
+    id_header_section <- paste0("<Folder>\n","<name>",unique_id,"</name>\n",
+      "<open>0</open>\n","\t<Folder>\n","\t<name>",unique_id,
+      " - Locations</name>\n","\t<open>0</open>\n")
+    id_placemark_section <- vector(mode = "character", 0)
     locs <- subset(df, id == unique_id)
     for (i in 1:nrow(locs)){
       loc <- locs[i,]
@@ -1548,12 +1555,14 @@ ExportKMLTelemetry <- function (df,
       ETs <- substring(loc$datetimeend, 12,19) #end time
       DAs <- strftime(loc[, "datetimebegin"], dateformat)
       TMs <- strftime(loc[, "datetimebegin"], timeformat)
-      PlacemarkPoint(PNs, Xs, Ys, Zs, ZDs,
-                     AGs,  SPs, BHs, SXs, PSs,
-                     IDs,  SDs, STs, EDs,  ETs,
-                     DAs, TMs)
+      id_placemark_section <- paste0(id_placemark_section,
+        PlacemarkPoint(PNs,  Xs,  Ys,  Zs, ZDs,
+                       AGs, SPs, BHs, SXs, PSs,
+                       IDs, SDs, STs, EDs, ETs,
+                       DAs, TMs))
     }
-    cat("\t</Folder>\n", file = outfile, append = TRUE, sep = "")
+    id_placemark_section <- paste0(id_header_section, id_placemark_section,
+      "\t</Folder>\n", collapse = "")
     locs$Ts <- "T"
     locs$Zs <- "Z"
     locs$datetimedate <- substring(locs$datetime, 1,10) #start date
@@ -1563,7 +1572,7 @@ ExportKMLTelemetry <- function (df,
     unique_id <- unique(locs$id)
     ifelse(icon_by_sex == TRUE, path_id <- paste0(unique_id, "-",
       unique(locs$sex)), path_id <- unique_id)
-    bloc2 <- NULL
+    id_path_section <- vector(mode = "character", 0)
     if (path == TRUE && "path_seg" %in% colnames(locs)){
       whens <- locs[, c("datetimedate","Ts","datetimetime", "Zs", "path_seg")]
       sgmts <- locs[, c("long","lat","alt", "path_seg")]
@@ -1581,7 +1590,7 @@ ExportKMLTelemetry <- function (df,
             collapse=" "), sep = ""),"</gx:coord>", collapse = "\n"), "\n",
           "\t\t</gx:Track>\n")
       }
-      bloc2 <- c(bloc2, paste(
+      id_path_section <- c(id_path_section, paste0(
         "\t<Placemark>\n",
         "\t\t<name>",unique_id," - Path</name>\n",
         "\t\t<styleUrl>#Track_",path_id,"</styleUrl>\n",
@@ -1589,13 +1598,12 @@ ExportKMLTelemetry <- function (df,
         "\t\t<gx:MultiTrack>\n",
         tracks,
         "\t\t</gx:MultiTrack>\n",
-        "\t</Placemark>\n",
-        sep = ""))
+        "\t</Placemark>\n"))
     }
     if (path == TRUE && !"path_seg" %in% colnames(locs)) {
       whens <- locs[, c("datetimedate","Ts","datetimetime", "Zs")]
       sgmts <- locs[, c("long","lat","alt")]
-      bloc2 <- c(bloc2, paste(
+      id_path_section <- c(id_path_section, paste0(
         "\t<Placemark>\n",
         "\t\t<name>",unique_id," - Path</name>\n",
         "\t\t<styleUrl>#Track_",path_id,"</styleUrl>\n",
@@ -1607,12 +1615,14 @@ ExportKMLTelemetry <- function (df,
         paste(paste("\t\t\t\t\t<gx:coord>", apply(sgmts, 1, paste, collapse=" "),
           sep = ""),"</gx:coord>", collapse = "\n"),"\n",
         "\t\t</gx:Track>\n",
-        "\t</Placemark>\n",
-        sep = ""))
+        "\t</Placemark>\n"))
     }
-    cat(bloc2, "\t</Folder>\n", file = outfile, append = TRUE)
+    id_section <- paste0(id_section, id_placemark_section, id_path_section,
+      "\t</Folder>\n")
   }
-  cat("</Document>\n</kml>", file = outfile, append = TRUE)
+  all_sections <- paste0(title_section, point_colors_section,
+    path_colors_section, id_section, "</Document>\n</kml>")
+  cat(all_sections, file = outfile, append = FALSE)
 }
 
 
@@ -1739,10 +1749,10 @@ ExportKMLTelemetryBAEA <- function (df,
                                     file = "BAEA Data.kml",
                                     output_dir = "C:/Users/Blake/Desktop") {
   if (point_color == "behavior" || point_color == "sex") {
-      point_metadata = "Data/Models/Behavior_Colors.csv"
+      point_metadata = "Data/Visualization/behavior_colors.csv"
   }
   if (!is.null(path_color) &&  path_color == "sex") {
-      path_metadata = "Data/Models/Behavior_Colors.csv"
+      path_metadata = "Data/Visualization/behavior_colors.csv"
   }
   gisr::ExportKMLTelemetry(df=df, id=id, datetime=datetime, lat=lat, long=long,
     alt=alt, alt_mode=alt_mode, speed=speed, agl=agl, behavior=behavior,
@@ -2130,47 +2140,50 @@ ExportKMLWindTurbines <- function (df = "Data/Turbines/Maine Wind Turbines.csv",
 #'
 #' Creates and updates year KML files on local and GDrive folders.
 #'
-#' @param data Dataframe of location data.
-#' @param update_only  Logical, whether or not to just update current year's
-#'   data. Default is TRUE.
-#' @param update_gdrive Logical, whether to update the files on the GDrive.
-#'   Default is TRUE.
+#' @usage ExportKMLPolygon(df, update_year, update_gdrive)
 #'
+#' @param df Dataframe of location data.
+#' @param update_year  integer, year to update. Default is NULL, which means all
+#'     years are updated.
+#' @param update_gdrive Logical, whether to update the files on the GDrive.
+#'     Default is TRUE.
 #' @return Creates .kml files in "Data/GPS" and copies them to
-#'   "Google Drive/BAEA Project/Telemetry Data/Individuals" folders.
+#'     "Google Drive/BAEA Project/Telemetry Data/Individuals" folders.
 #' @export
-UpdateIndByYearKMLs <- function(data,
-                                update_only = TRUE,
+UpdateIndByYearKMLs <- function(df,
+                                update_year = NULL,
                                 update_gdrive = TRUE){
-  data <- data
   # Update local individual files
-  data <- data
-  ids <- unique(data$id)
-  current_year <- year(now())
-  for (i in  1:length(ids)){
+  df <- df
+  ids <- unique(df$id)
+  for (i in 1:length(ids)){
     id <- ids[i]
-    df <- data[data$id == id,]
-    if(update_only == TRUE){
-      df_year <- df[df$year == current_year,]
+    df_i <- df[df$id == id, ]
+    if(!is.null(update_year)){
+      df_year <- df_i[df_i$year == update_year, ]
       if (nrow(df_year) > 1){
-        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", current_year,
+        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", update_year,
           ".kml"), output_dir = "Data/GPS/KMLs")
       }
     } else {
-      years <- year(first(df$datetime)):year(last(df$datetime))
+      start_year <- lubridate::year(first(df_i$datetime))
+      end_year <- lubridate::year(last(df_i$datetime))
+      years <- start_year:end_year
       for (j in 1:length(years)){
         year <- years[j]
-        df_year <- df[df$year == year,]
-        ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", year, ".kml"),
-          output_dir = "Data/GPS/KMLs")
+        df_year <- df_i[df_i$year == year, ]
+        if (nrow(df_year) > 1){
+          ExportKMLTelemetryBAEA(df_year, file = paste0(id, "_", year, ".kml"),
+            output_dir = "Data/GPS/KMLs")
+        }
       }
     }
   }
   if (update_gdrive == TRUE){
     # Copy individual files to Google Drive
     kml_files <- list.files("Data/GPS/KMLs", full.names=TRUE)
-    if (update_only) kml_files <- stringr::str_subset(kml_files,
-      as.character(current_year))
+    if (!is.null(update_year)) kml_files <- stringr::str_subset(kml_files,
+      as.character(update_year))
     output_dir = file.path("C:/Users/Blake/Google Drive/PhD Program",
       "BAEA Project/Telemetry Data/Individuals")
     file.copy(kml_files, output_dir, overwrite=TRUE)

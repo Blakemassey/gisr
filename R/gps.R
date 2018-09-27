@@ -410,6 +410,13 @@ CompileDownloads <- function(units = "deployed",
   df <- unique(df)  # removes duplicate rows, e.g. 72179 2013-12-29 06:28:39
   df <- df[,c("id",setdiff(names(df),"id"))]  # puts "id" column first
   row.names(df) <- NULL
+  # known bad location:
+  bad <- which(df[,"id"]=="Sandy" & df[,"datetime"] == "2016-03-10 09:30:07")
+  if (length(bad) > 0) df <- df[-bad, ]
+  bad <- which(df[,"id"]=="Cape_Walsh" & df[,"datetime"]=="2017-08-22 19:19:58")
+  if (length(bad) > 0) df <- df[-bad, ]
+  bad <- which(df[,"id"]=="Cape_Walsh" & df[,"datetime"]=="2017-11-15 07:45:39")
+  if (length(bad) > 0) df <- df[-bad, ]
   return(df)
 }
 
@@ -446,19 +453,19 @@ CreateMove <- function(df){
 DownloadCTT <- function(units="",
                         download="recent") {
   if (units == "deployed" && download == "all") {
-    system('python C:/Work/Python/Scripts/cttpy/Import_Deployed_All.py')
+    system('C:/Anaconda/envs/ctt/python.exe C:/Work/Python/Scripts/cttpy/Import_Deployed_All.py')
     writeLines(noquote("Downloading all data for deployed units from CTT"))
   }
   if (units == "deployed" && download == "recent") {
-    system('python C:/Work/Python/Scripts/cttpy/Import_Deployed_Recent.py')
+    system('C:/Anaconda/envs/ctt/python.exe C:/Work/Python/Scripts/cttpy/Import_Deployed_Recent.py')
     writeLines(noquote("Downloading recent data for deployed units from CTT"))
   }
   if (units == "reserve" && download == "all") {
-    system('python C:/Work/Python/Scripts/cttpy/Import_Reserve_All.py')
+    system('C:/Anaconda/envs/ctt/python.exe C:/Work/Python/Scripts/cttpy/Import_Reserve_All.py')
     writeLines(noquote("Downloading all data for reserve units from CTT"))
   }
   if (units == "reserve" && download == "recent") {
-    system('python C:/Work/Python/Scripts/cttpy/Import_Reserve_Recent.py')
+    system('C:/Anaconda/envs/ctt/python.exe C:/Work/Python/Scripts/cttpy/Import_Reserve_Recent.py')
     writeLines(noquote("Downloading recent data for reserve units from CTT"))
   }
   if (units == ""  | units == "none") {

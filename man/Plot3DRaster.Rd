@@ -2,7 +2,8 @@
 % Please edit documentation in R/gis.R
 \name{Plot3DRaster}
 \alias{Plot3DRaster}
-\title{Plot3DRaster}
+\title{Wrapper function for hist3D() and plotrgl() that plots an rgl plot from a
+  Raster layer}
 \usage{
 Plot3DRaster(raster, azimuth, colaltitude, col, border, x_lab, y_lab,
   z_lab, z_lim, main, legend_lab, rgl, rgl_window, spin, movie, movie_name,

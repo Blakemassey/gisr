@@ -4,7 +4,8 @@
 \alias{SummarizeOvernightDistances}
 \title{Summarizes overnight distances}
 \usage{
-SummarizeOvernightDistances(df = df, individual = NULL, cuts = (0.05))
+SummarizeOvernightDistances(df = df, individual = NULL,
+  cuts = (0.05))
 }
 \arguments{
 \item{df}{Dataframe}

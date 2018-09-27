@@ -2,9 +2,9 @@
 % Please edit documentation in R/gis.R
 \name{PrintRasterNames}
 \alias{PrintRasterNames}
-\title{PrintRasterNames}
+\title{Prints the position and name of the rasters in a RasterStack or RasterBrick}
 \usage{
-PrinttRasterNames(raster)
+PrintRasterNames(raster)
 }
 \arguments{
 \item{raster}{RasterStack or RasterBrick}

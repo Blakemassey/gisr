@@ -110,6 +110,47 @@ AddUTMCoordinates <- function(df,
   return(df)
 }
 
+#' Calculate terrain metrics on elevation RasterLayer
+#'
+#' @param elev RasterLayer, elevation data raster
+#' @param size numeric, dimensions of analysis window (nrow and ncol). Must be
+#'   odd number.
+#' @param metric character, vector containing one of these options: tpi, tri,
+#'   roughness (see Details)
+#'
+#' @details metrics based on examples given in terrain() in 'raster' package
+#' @return RasterLayer
+#' @export
+#'
+CalculateTerrainMetric <- function(elev,
+                                   size,
+                                   metric){
+  x <- elev
+  weight_matrix <- matrix(1, nrow=size, ncol=size)
+  center <- ceiling(0.5 * length(weight_matrix))
+  window <- length(weight_matrix)-1
+  if (metric == "tri"){
+    tri <- focal(x, w=weight_matrix,
+      fun=function(x, ...) sum(abs(x[-center]-x[center]))/window,
+      pad=TRUE, padValue=NA)
+      out_matrix <- tri
+  } else if (metric == "tpi"){
+    tpi <- focal(x, w = weight_matrix,
+      fun=function(x, ...) x[center] - mean(x[-center]),
+      pad=TRUE, padValue=NA)
+    out_matrix <- tpi
+  } else if (metric == "roughness"){
+    rough <- focal(x, w = weight_matrix,
+      fun = function(x, ...) max(x) - min(x),
+      pad = TRUE, padValue =NA, na.rm=TRUE)
+    out_matrix <- rough
+  } else {
+    stop("'metric' must equal 'tpi', 'tri', or 'roughness'", call. = FALSE)
+  }
+  return(out_matrix)
+}
+
+
 #' Centers x,y data based on a 'base' raster
 #'
 #' Centers x and y values of a dataframe into the center of raster cells based
@@ -336,6 +377,20 @@ CreateCategoricalLegend <-function(metadata,
   par(new = FALSE)
   par(mar = omar)
 }
+#' Create a Matrix with a specific value in the center cell
+#'
+#' @param nrow integer, number of rows
+#' @param center_value numeric, number in center cell
+#' @return a matrix
+#' @export
+CreateCenterValueMatrix <- function(nrow,
+                                    center_value){
+  center_cell <- ceiling(nrow/2)
+  dimnames <- list(X=seq_len(nrow), Y=seq_len(nrow))
+  mat <- t(matrix(0, nrow=nrow, ncol=nrow, dimnames = dimnames))
+  mat[center_cell, center_cell] <- center_value
+  return(mat)
+}
 
 #' Creates a color interval sequence for color ramps
 #'
@@ -540,6 +595,38 @@ CreateExtentBuffer <- function(df = df,
     round_any(min(df$lat_utm) - buffer, buffer, floor),
     round_any(max(df$lat_utm) + buffer, buffer, ceiling))
   extent(extent_matrix)
+}
+
+#' Create a Gaussian Kernel RasterLayer
+#' @usage CreateGaussKernRaster(sigma, nrow, shift_n, cell_size)
+#'
+#' @param sigma numeric, sigma (or sd) of distribution - scaled to cell_size
+#' @param nrow numeric, number of rows/columns in RasterLayer
+#' @param shift logical, whether to shift cells to center. If TRUE, center
+#'    middle cell at c(0,0). Default is FALSE.
+#' @param shift_n numeric, shift in lat/long origin position
+#' @param cell_size numeric, cell size of RasterLayer
+#'
+#' @return RasterLayer
+#' @export
+#'
+CreateGaussKernRaster <- function(sigma,
+                                  nrow = NA,
+                                  shift = FALSE,
+                                  shift_n = 0,
+                                  cell_size = 30){
+  if(is.na(nrow)) nrow <- (2*floor(2*sigma)+1)
+  if(isTRUE(shift)) shift_n <- -1*((nrow * 30)/2)
+  ncol <- nrow
+  cell_edges <- seq(0, ncol*cell_size, cell_size)
+  cell_centers <- cell_edges[-length(cell_edges)] + diff(cell_edges)/2
+  center_x <- floor(nrow/2)
+  g_kernel <- gaussian.kernel(sigma=sigma, n=nrow)
+  g_raster <- raster(nrows = nrow, ncols = ncol, xmn=0,
+    xmx = nrow*cell_size, ymn=0, ymx = ncol*cell_size, resolution = cell_size)
+  g_raster[] <- g_kernel
+  g_raster_out <- shift(g_raster, x = shift_n, y = shift_n)
+  return(g_raster_out)
 }
 
 #' Creates kernel density estimate (kde) raster based on spatial points
@@ -878,6 +965,21 @@ CreateSpatialPolygons <- function (df = df,
   return(spatial_polygon)
 }
 
+#' Deg2Rad
+#'
+#' Converts degrees to radians
+#'
+#' @usage Deg2Rad(degree)
+#'
+#' @param degress numeric, angle in degrees
+#'
+#' @return Angle in radians
+#' @export
+Deg2Rad <- function(degree) {
+  radian <- (degree * pi) / (180)
+  return(radian)
+}
+
 #' ExportRasterNestConDist
 #'
 #' Creates a list of RasterLayers of distances to study nests (nests to create
@@ -954,6 +1056,35 @@ ExportShapefileFromPoints <- function(df = df,
     overwrite_layer = overwrite)
 }
 
+#' Extract values in center row of matrix and convert to a dataframe
+#'
+#' @param matrix_in matrix
+#'
+#' @return matrix
+#' @export
+#'
+ExtractMatrixCenterRow <- function(matrix_in){
+  nrow <- nrow(matrix_in)
+  center_row <- ceiling(nrow/2)
+  df_out <- data.frame(x = seq_len(nrow), y = matrix_in[, center_row])
+  return(df_out)
+}
+
+#' Extract values in center row of RasterLayer and convert to a dataframe
+#'
+#' @param raster_in matrix
+#'
+#' @return matrix
+#' @export
+#'
+ExtractRasterCenterRow <- function(raster_in){
+  nrow <- nrow(raster_in)
+  center_row <- ceiling(nrow/2)
+  df_out <- data.frame(x = xFromCol(raster_in, col=1:ncol(raster_in)),
+    y = getValues(raster_in, row = center_row))
+  return(df_out)
+}
+
 #' ImportLandscapeRasterStack
 #'
 #' Imports raster layers and combines them into a RasterStack
@@ -983,6 +1114,38 @@ ImportLandscapeRasterStack <- function(){
   layers <- sapply(names, function(i) paste(" ", i))
   cat(layers, sep="\n")
   return(raster_stack)
+}
+
+#' Keep values only in center row of matrix (other cells converted to zero)
+#'
+#' @param matrix_in matrix
+#'
+#' @return matrix
+#' @export
+#'
+KeepMatrixCenterRow <- function(matrix_in){
+  matrix_slice <- matrix_in
+  matrix_slice[] <- 0
+  nrow <- nrow(matrix_in)
+  center_x <- ceiling(nrow/2)
+  matrix_slice[,center_x] <- matrix_in[,center_x]
+  return(matrix_slice)
+}
+
+#' Keep values only in center row of Raster (convert other cells to zero)
+#'
+#' @param raster_in Raster
+#'
+#' @return Raster
+#' @export
+#'
+KeepRasterCenterRow <- function(raster_in){
+  raster_slice <- raster_in
+  raster_slice[] <- 0
+  nrow <- nrow(as.matrix(raster_in))
+  center_row <- ceiling(nrow/2) # evens and odds # evens and odds
+  raster_slice[center_row,] <- getValues(raster_in, row = center_row)
+  return(raster_slice)
 }
 
 #' PackCircles
@@ -1092,15 +1255,536 @@ PackCircles <- function(config,
   return(xy)
 }
 
-#' Plot3DRaster
-#'
+#' Plot 4 ggplots for optimization procedure
+#' @param covar_ras RasterLayer
+#' @param covar_ras_smooth RasterLayer
+#' @param prob_ras RasterLayer
+#' @param pred_ras RasterLayer
+#' @param in_intercept numeric, input value for intercept of Logistic
+#' @param in_beta1 numeric, input value for beta of Logisitic
+#' @param in_sigma numeric, input value for sigma of Gaussian Kernel Smoothing
+#' @return  ggplot
+#' @export
+PlotAllSigmaOptimRasters <- function(covar_ras,
+                                     covar_ras_smooth,
+                                     prob_ras,
+                                     pred_ras,
+                                     in_intercept = in_intercept,
+                                     in_beta1 = in_beta1,
+                                     in_sigma = in_sigma,
+                                     color_pal = "Greens"){
+  gg1 <- ggplot(ConvertRasterForGGPlot(covar_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Original Raster")
+  gg2 <- ggplot(ConvertRasterForGGPlot(covar_ras_smooth, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Smoothed (sigma = ", in_sigma, ")"))
+  gg3 <- ggplot(ConvertRasterForGGPlot(prob_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Probability", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Logistic (int = ", in_intercept, ", beta1 = ",
+      in_beta1,")"))
+  gg4 <- ggplot(ConvertRasterForGGPlot(pred_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Predicted Surface")
+  grid.arrange(gg1, gg2, gg3, gg4, nrow = 2, ncol = 2)
+}
+
+#' Plot 4 ggplots for optimization procedure
+#' @param covar_ras RasterLayer
+#' @param covar_ras_smooth RasterLayer
+#' @param prob_ras RasterLayer
+#' @param pred_ras RasterLayer
+#' @param in_intercept numeric, input value for intercept of Logistic
+#' @param in_beta1 numeric, input value for beta of Logisitic
+#' @param in_sigma numeric, input value for sigma of Gaussian Kernel Smoothing
+#' @return ggplot
+#' @export
+PlotBWOptimRasters <- function(covar_ras,
+                               covar_ras_smooth,
+                               prob_ras,
+                               pred_ras,
+                               in_intercept = in_intercept,
+                               in_beta1 = in_beta1,
+                               in_sigma = in_sigma,
+                               color_pal = "Greens"){
+  gg1 <- ggplot(ConvertRasterForGGPlot(covar_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Original Raster")
+  gg2 <- ggplot(ConvertRasterForGGPlot(covar_ras_smooth, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Smoothed (sigma = ", in_sigma, ")"))
+  gg3 <- ggplot(ConvertRasterForGGPlot(prob_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Probability", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Logistic (int = ", in_intercept, ", beta1 = ",
+      in_beta1,")"))
+  gg4 <- ggplot(ConvertRasterForGGPlot(pred_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Predicted Surface")
+  grid.arrange(gg1, gg2, gg3, gg4, nrow = 2, ncol = 2)
+}
+
+
+#' Plot 4 ggplots for optimization procedure
+#' @param covar_ras RasterLayer
+#' @param covar_ras_smooth RasterLayer
+#' @param prob_ras RasterLayer
+#' @param pred_ras RasterLayer
+#' @param in_intercept numeric, input value for intercept of Logistic
+#' @param in_beta1 numeric, input value for beta of Logisitic
+#' @param in_sigma numeric, input value for sigma of Gaussian Kernel Smoothing
+#' @param col_option color option for color viridis
+#' @return ggplot
+#' @export
+PlotBWOptimRasters2 <- function(covar_ras,
+                               covar_ras_smooth,
+                               prob_ras,
+                               pred_ras,
+                               in_intercept = in_intercept,
+                               in_beta1 = in_beta1,
+                               in_sigma = in_sigma,
+                               col_option = "D"){
+  color_pal <- "Greens"
+  gg1 <- ggplot(ConvertRasterForGGPlot(covar_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(option = col_option,
+      guide = guide_colorbar(title = "Probability", title.hjust = .5)) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Original Raster")
+  gg2 <- ggplot(ConvertRasterForGGPlot(covar_ras_smooth, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(option = col_option,
+      guide = guide_colorbar(title = "Probability", title.hjust = .5)) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Smoothed (sigma = ", in_sigma, ")"))
+  gg3 <- ggplot(ConvertRasterForGGPlot(prob_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(option = col_option,
+      guide = guide_colorbar(title = "Probability", title.hjust = .5)) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(paste0("Logistic (int = ", in_intercept, ", beta1 = ",
+      in_beta1,")"))
+  gg4 <- ggplot(ConvertRasterForGGPlot(pred_ras, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(option = col_option,
+      guide = guide_colorbar(title = "Probability", title.hjust = .5)) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle("Predicted Surface")
+  grid.arrange(gg1, gg2, gg3, gg4, nrow = 2, ncol = 2)
+}
+
+#' Plot Rastet showing bandwidth
+#' @param in_raster RasterLayer
+#' @param title character, title of plot
+#' @return ggplot
+#' @export
+PlotBWRaster <- function(in_raster,
+                         title = NA,
+                         color_pal = "Greens"){
+  gg <- ggplot(ConvertRasterForGGPlot(in_raster, 100000), aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_distiller(name = "Value", palette=color_pal, direction = 1) +
+    scale_x_continuous(expand =c(0,0)) + scale_y_continuous(expand =c(0,0)) +
+    coord_fixed(ratio = 1) +
+    ggtitle(title)
+  gg
+}
+
+
+#' Plot a Logisitic function (with probability on the y-axis)
+#' @param beta0 numeric, intercept used in function
+#' @param beta1 numeric, slope used in function
+#' @param min_X numeric, minimum on x axis
+#' @param max_X numeric, maximum on x axis
+#' @return ggplot
+#' @export
+#' @examples PlotLogisticZeroOneRange(intercept = 5, beta = -10)
+PlotLogisticRange <- function(beta0,
+                              beta1,
+                              min_x = -.25,
+                              max_x = 1.25){
+  predictors <- seq(-min_x, max_x, by = .01)
+  predictors_logit <- beta0 + beta1*(predictors)
+  df <- data.frame(predictors, probs = plogis(predictors_logit))
+  (y_mid_int <- (-(1*beta0/beta1)))
+  rect_df <- data.frame(xmin = c(-.25, 1), ymin=c(0,0), xmax= c(0,1.25),
+    ymax = c(1,1))
+  ggplot(df) + geom_line(aes(predictors, probs), color = "blue") +
+    geom_segment(aes(x = y_mid_int, y = 0, xend = y_mid_int, yend = 1),
+      color = "red") +
+    geom_rect(data = rect_df, alpha = .5, aes(xmin=xmin, ymin=ymin, xmax=xmax,
+      ymax=ymax)) +
+    annotate("text", x = y_mid_int + .03, y = .03, label = signif(y_mid_int, 2),
+      color = "red") +
+    ylim(0,1) + labs(x = "Predictor", y = "Probability") + theme_no_legend +
+    ggtitle(paste0("Logistic (", "beta0 = ", beta0, ", beta1 = ",
+      beta1, ")")) +
+    theme(plot.title = element_text(hjust = 0.5, vjust = 0))
+}
+
+#' Plot Logistic Function for two continous variables
+#' @param beta0 numeric, intercept
+#' @param beta1 numeric, slope parameter
+#' @param beta2 numeric, slope parameter
+#' @return plotly plot
+#' @export
+PlotLogisticRange2Par <- function(beta0 = -5,
+                                  beta1 = 5,
+                                  beta2 = 20){
+  predictor1 <- seq(0, 1, by = .1)  #.01
+  predictor2 <- seq(0, 1, by = .1)  #.01
+  df <- crossing(predictor1, predictor2)
+  f <- function(x, y) { r <- plogis(beta0 + x*beta1 + y*beta2)}
+  #  f <- function(x, y) { r <- beta0 + x + y^2} # FOR TESTING PLOT AXES
+  df <- df %>%
+    mutate(prob = map2_dbl(predictor1, predictor2, f)) %>%
+    mutate(pred1 = as.factor(predictor1)) %>%
+    mutate(pred2 = as.factor(predictor2))
+  title <- paste0("Logistic (", "beta0 = ", beta0, ", beta1 = ", beta1,
+    ", beta2 = ", beta2,")")
+  # Individual Graphs (USED FOR REFERENCE AND AD HOC PLOTTING) --
+  g1 <- ggplot(df, aes(x=predictor1, y=prob, color=pred2)) +
+    geom_line(lwd=1.5) + scale_color_viridis_d(option = "C") +
+    labs(x="Predictor 1", y="Probability", title=title) +
+    guides(colour = guide_legend(reverse=T)) + theme_legend
+  g2 <- ggplot(df, aes(x=predictor2, y=prob, color=pred1)) +
+    geom_line(lwd=2) + scale_color_viridis_d(option = "C") +
+    labs(x="Predictor 2", y="Probability", title=title) +
+    guides(colour = guide_legend(reverse=T)) + theme_legend
+  #SaveGGPlot(filename = "g1.png", path = plot_dir)
+  #SaveGGPlot(filename = "g2.png", path = plot_dir)
+  z <- t(outer(predictor1, predictor2, f))
+  ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
+  viridis_col <- list(seq(0, 1, length.out = 100), (viridis(100, option ="C")))
+  p3 <- plot_ly(width = 1024, height = 768) %>%
+    add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
+      colorbar=list(title='Probability', x = 0.9, y = 0.85,
+        titlefont = list(size =  18)),
+      contours = list(x = list(show = TRUE), y = list(show = TRUE)),
+      name = "Probability", showscale = TRUE, colorscale = viridis_col,
+      showlegend = TRUE)  %>%
+    layout( #font = list(size = 14),
+      margin = list(t = 75),
+      title = paste0("\n", title),
+      titlefont = list(size =  25),
+      scene = list(
+        camera = list(
+          center = list(x = 0, y = 0, z = -.1),
+          eye = list(x = -1.25, y = -1.25, z = 1.25)),
+      zaxis = list(title = "Probability"),
+      yaxis = list(title = "Predictor 2", automargin = TRUE, dtick = .1,
+        tickfont = list(color = "grey50")),
+      xaxis = list(title = "Predictor 1", automargin = TRUE, dtick = .1,
+        tickfont = list(color = "grey50"))))
+  # Subplots together (THIS IS WHAT IS RETURNED) --
+  p1 <- plot_ly(data = df) %>%
+   add_trace(., type = "scatter", mode = "lines", x= ~predictor1,
+     y= ~prob, color = ~pred2, colors = viridis(10, option = "D"))
+  p2 <- plot_ly(data = df) %>%
+   add_trace(., type = "scatter", mode = "lines", x= ~predictor2,
+     y= ~prob, color = ~pred1, colors = viridis(10, option = "D"),
+     showlegend = FALSE)
+  p3 <- plot_ly() %>%
+    add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
+      contours = list(x = list(show = TRUE), y = list(show = TRUE)),
+      name = "Probability", showscale = TRUE, colorscale = viridis_col,
+      showlegend = TRUE, name = "Function",
+      colorbar = list(x = 0, y = 0.05, len = 0.3, lenmode = "fraction",
+        thickness = 0.03, thicknessmode = "fraction",  ticklen = 2, title =
+        "Probability", titlefont = list(size = 13), yanchor = "bottom")) %>%
+      layout(xaxis = list(anchor = "y"), yaxis = list(anchor = "x"))
+  p1_3 <-
+    subplot(p3,
+      subplot(p1, p2, nrows = 2, heights = c(.45, .45), margin = 0.1),
+      nrows = 1, widths = c(.62, .38), margin = 0.05) %>%
+    layout(title = title,
+      showlegend = TRUE,
+      legend = list(traceorder = "reversed",
+        x = 1.025, y = 0.6,  bgcolor = "rgba(255,255,255,1)",
+        bordercolor = "transparent", borderwidth = 2,
+        font = list(color = "rgba(0, 0, 0, 1)", family = "", size = 11),
+        orientation = "v", xanchor = "left", yanchor = "top"),
+      xaxis = list(title = "TEST1"),
+      yaxis = list(title = "TEST2"),
+      xaxis2 = list(dtick = .1, title = "Predictor 1"),
+      yaxis2 = list(dtick = .1, title = "Probability"),
+      xaxis3 = list(dtick = .1, title = "Predictor 2"),
+      yaxis3 = list(dtick = .1, title = "Probability"),
+      annotations = list(
+        list(x = 1.025, y = 0.6, ax = 0, ay = 0,
+          font = list(color = "rgba(0, 0, 0, 1)", family = "", size = 12),
+          showarrow = FALSE, text = "Other <br> predictor <br> value <br>",
+          textangle = 0, xanchor = "left", xref = "paper", yanchor = "bottom",
+          yref = "paper")),
+      margin = list(l = 0, r = 50, t = 75, b = 50),
+      scene = list(showlegend = FALSE,  showscale = FALSE,
+        camera = list(
+          center = list(x = 0, y = 0, z = -0.15),
+          eye = list(x = -1.6, y = -1.6, z = 1.6)),
+        xaxis = list(dtick = .1, title = "Predictor 1"),
+        yaxis = list(dtick = .1, title = "Predictor 2"),
+        zaxis = list(dtick = .25, title = "Prob"),
+        name = "Pred1", domain=list(x=c(0.0,.65),y=c(0, 1))))
+  return(p1_3)
+}
+
+#' Plot a matrix, with arguments for labels and coordinates
+#' @param mat matrix
+#' @param digits integer, number of digits shown on map
+#' @param title character, plot title
+#' @param label logical, whether to label
+#' @param all_coords logical, whether to show all coordinates on x/y axis
+#' @param label_size numberic, label size
+#' @return ggplot
+#' @export
+PlotMatrix <- function(mat,
+                       digits = 2,
+                       title = NULL,
+                       label = TRUE,
+                       all_coords = TRUE,
+                       label_size = 4){
+  mat_df <- reshape2::melt(mat, varnames = c("X", "Y"))
+  g <- ggplot(mat_df, aes(X, Y)) + geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(option = "D") +
+    guides(fill = guide_colorbar(title = "Value", title_hjust = .5,
+      barwidth = 0.5, barheight = 10)) +
+    coord_fixed(ratio=1) + ggtitle(title) +
+    theme(plot.margin = unit(c(1,1,1,1),"cm"),
+    plot.title = element_text(size = 18, face = "bold", hjust = .5, vjust = 0),
+    axis.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.title.y = element_text(angle = 0, vjust = .5),
+    panel.grid = element_line(colour = NA),
+    panel.background = element_rect(fill = "white", colour = "white"),
+    axis.line = element_blank())
+  if(isTRUE(label)) g <- g + geom_text(aes(label = round(value, digits)),
+    size = label_size)
+  exc <- c(0,0,0,0)
+  if(isTRUE(all_coords)){
+    g <- g + scale_x_continuous(breaks=seq(1, nrow(mat), 1), expand = exc) +
+      scale_y_continuous(breaks=seq(1, ncol(mat), 1), expand = exc)
+  } else {
+    g <- g + scale_x_continuous(expand = exc)+ scale_y_continuous(expand = exc)
+    }
+  g
+}
+
+#' Plot a matrix's center row
+#' @param matrix_in matrix
+#' @param title character, title for plot
+#' @return ggplot
+#' @export
+PlotMatrixCenterRow2D <- function(matrix_in,
+                                  title = NULL){
+  df <- ExtractMatrixCenterRow(matrix_in)
+  cell_size = df$x[2] - df$x[1]
+  g <- ggplot(df, aes(x, y)) +
+    geom_col(aes(fill = y), width = cell_size, color="black") +
+    scale_fill_viridis_c(guide = guide_colorbar(title = "Probability",
+      title.hjust = .5)) +
+    annotate("text", x = max(df$x), y = max(df$y),
+      label = paste0("Sum: ", signif(sum(df$y), 3)), hjust = 1, vjust = 1) +
+    ggtitle(title) +
+    ylab("Probability") +  xlab("Cell Center (X)") +
+    scale_x_continuous(breaks = df$x, expand = c(0, 0, 0, 0)) +
+    scale_y_continuous(expand = c(0, 0, .1, 0)) +
+    theme(plot.margin = unit(c(1,1,1,1),"cm"),
+    plot.title = element_text(size = 18, face = "bold", hjust = .5, vjust = 0),
+    axis.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    panel.grid.minor.x = element_line(colour = "grey80"),
+    panel.grid.major.x = element_line(colour =  NA),
+    panel.grid.minor.y = element_line(colour =  NA),
+    panel.grid.major.y = element_line(colour = "grey80", size=1,
+      linetype="dashed"),
+    panel.background = element_rect(fill = "white", colour = "white"))
+  return(g)
+}
+
+#' Plot a raster as a matrix
+#' @param raster_in, RasterLayer
+#' @param title character, title of plt
+#' @param legend character, legend title
+#' @param all_coords logical, whether to show all coordinates on x/y axes
+#' @return ggplot
+#' @export
+PlotRasterAsMatrix <- function(raster_in,
+                               title = NULL,
+                               legend = "Value",
+                               all_coords = TRUE){
+  df_temp_ras <- ConvertRasterForGGPlot(raster_in, 200000)
+  g <- ggplot(df_temp_ras, aes(x, y)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_viridis_c(guide = guide_colorbar(title = legend,
+      title.hjust = .5, barwidth = 0.5, barheight = 5), option = "D") +
+    theme(plot.margin = unit(c(1,1,1,1),"cm"),
+      text =  element_text(size = 10),
+      plot.title = element_text(size = rel(1.2), face = "bold", hjust = .5,
+        vjust = 0),
+      axis.text = element_text(size = rel(.8), face = "bold"),
+      axis.title = element_text(size = rel(1), face = "bold"),
+      axis.title.y = element_text(angle = 0, vjust = .5),
+      panel.grid = element_line(colour = NA),
+      panel.background = element_rect(fill = "white", colour = "white"),
+      axis.line = element_blank()) +
+    theme(axis.text.x = element_text(angle = 0, vjust = .75)) +
+    coord_fixed(ratio = 1) + ggtitle(title) + xlab("X") + ylab("Y")
+  exc <- c(0,0,0,0)
+  if(isTRUE(all_coords)){
+    g <- g + theme(axis.text.x = element_text(angle = 45, vjust = .75)) +
+      scale_x_continuous(breaks=seq(min(df_temp_ras$x), max(df_temp_ras$x),
+        by = res(raster_in)[1]), expand = exc) +
+      scale_y_continuous(breaks=seq(min(df_temp_ras$y), max(df_temp_ras$y),
+        by = res(raster_in)[2]), expand = exc)
+  } else {
+    g <- g + theme(axis.text.x = element_text(vjust = .75)) +
+      scale_x_continuous(expand = exc) + scale_y_continuous(expand = exc)
+  }
+  g
+  return(g)
+}
+
+#' Plot a raster's center row
+#' @param raster_in RasterLayer
+#' @param title character, title of plot
+#' @return ggplot
+#' @export
+PlotRasterCenterRow2D <- function(raster_in,
+                                  title = NULL){
+  df = ExtractRasterCenterRow(raster_in)
+  cell_size = res(raster_in)[1]
+  ggplot(df, aes(x, y)) +
+    geom_col(aes(fill = y), width = cell_size, color="black") +
+    scale_fill_viridis_c(guide = guide_colorbar(title = "Probability",
+      title.hjust = .5)) +
+    annotate("text", x = max(df$x), y = max(df$y),
+      label = paste0("Sum: ", signif(sum(df$y), 3)), hjust = 1, vjust = 1) +
+    ggtitle(title) +
+    ylab("Probability") +  xlab("Cell Center (X)") +
+    scale_x_continuous(breaks = df$x, expand = c(0, 0, 0, 0)) +
+    scale_y_continuous(expand = c(0, 0, .1, 0)) +
+    theme(plot.margin = unit(c(1,1,1,1),"cm"),
+    plot.title = element_text(size = 18, face = "bold", hjust = .5, vjust = 0),
+    axis.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 14, face = "bold"),
+    panel.grid.minor.x = element_line(colour = "grey80"),
+    panel.grid.major.x = element_line(colour =  NA),
+    panel.grid.minor.y = element_line(colour =  NA),
+    panel.grid.major.y = element_line(colour = "grey80", size=1,
+      linetype="dashed"),
+    panel.background = element_rect(fill = "white", colour = "white"))
+}
+
+#' Wrapper function to create, slice, and plot a Gaussian Kernel Raster
+#' @param raster_in Raster*, overrides sigma and nrow below when provided.
+#'     Default is NULL which then uses the parameters below to create a Raster.
+#' @param sigma numeric, sigma (or sd) of distribution - scaled to cell_size
+#' @param nrow numeric, number of rows/columns in RasterLayer
+#' @param shift_n numberic, shift in lat/long origin position
+#' @param cell_size numeric, cell size of RasterLayer
+#' @param title character, main title. If not provided, a default is used.
+#' @param normalize logical, whether or not to normalize values to sum to 1
+#' @param dnorm_line logical, whether or not to add a normal distribution curve
+#'     to plot. The curve will be scaled to the cell_size and sigma provided.
+#' @return ggplot
+#' @export
+PlotRasterKernSlice <- function(raster_in = NULL,
+                                sigma = 1,
+                                nrow = 21,
+                                shift_n = 0,
+                                cell_size = 30,
+                                title = NULL,
+                                normalize = FALSE,
+                                dnorm_line = FALSE){
+  if(is.null(raster_in)){
+    gkern_raster <- CreateGaussKernRaster(sigma = sigma, nrow = nrow,
+      shift_n = shift_n, cell_size = cell_size)
+  } else {
+    gkern_raster <- raster_in
+    cell_size <- xres(gkern_raster)
+    nrow <- nrow(gkern_raster)
+    gkern_raster <- shift(gkern_raster, shift_n, shift_n)
+  }
+  gkern_raster_center <- KeepRasterCenterRow(gkern_raster)
+  gkern_raster_center_s1 <- gkern_raster_center / cellStats(gkern_raster_center,
+    stat="sum")
+  if(isTRUE(normalize)){
+    slice_df <- ExtractRasterCenterRow(gkern_raster_center_s1)
+  } else{
+    slice_df <- ExtractRasterCenterRow(gkern_raster_center)
+  }
+  center_row <- ceiling(nrow/2)
+  dnorm_spread <- data.frame(
+    x = seq(slice_df[1,1], slice_df[nrow, 1], length.out = 1001),
+    y = dnorm(seq(1, nrow(slice_df), length.out = 1001), mean = center_row,
+      sd = sigma))
+  if(is.null(title)){
+    title <- paste0("Gaussian Kernel Slice (center = ", median(slice_df$x),
+        ", sigma = ", sigma, ")")
+  }
+  g <- ggplot(slice_df, aes(x, y)) +
+    geom_col(aes(fill = y), width = cell_size, color="black") +
+    scale_fill_viridis_c(guide = guide_colorbar(title = "Probability",
+      title.hjust = .5)) +
+    annotate("text", x = max(slice_df$x), y = max(slice_df$y),
+      label = paste0("Sum: ", signif(sum(slice_df$y), 3)), hjust = 1,
+      vjust = 1) +
+    ggtitle(title) +
+    ylab("Probability") +  xlab("Cell Center (X)") +
+    scale_x_continuous(breaks = slice_df$x, expand = c(0, 0, 0, 0)) +
+    scale_y_continuous(expand = c(0, 0, .1, 0)) +
+    theme(plot.margin = unit(c(1,1,1,1),"cm"),
+    plot.title = element_text(size = 18, face = "bold", hjust = .5, vjust = 0),
+    axis.text = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(angle = 45),
+    axis.title = element_text(size = 14, face = "bold"),
+    panel.grid.minor.x = element_line(colour = "grey80"),
+    panel.grid.major.x = element_line(colour =  NA),
+    panel.grid.minor.y = element_line(colour =  NA),
+    panel.grid.major.y = element_line(colour = "grey80", size=1,
+      linetype="dashed"),
+    panel.background = element_rect(fill = "white", colour = "white"))
+  if(isTRUE(dnorm_line)){
+    g_final <- g + geom_line(data = dnorm_spread, aes(x,y), color = "firebrick",
+      size = 1.25, linetype = 5)
+  } else {
+    g_final <- g
+  }
+  return(g_final)
+}
+
 #' Wrapper function for hist3D() and plotrgl() that plots an rgl plot from a
 #'   Raster layer
-#'
 #' @usage Plot3DRaster(raster, azimuth, colaltitude, col, border, x_lab, y_lab,
 #'   z_lab, z_lim, main, legend_lab, rgl, rgl_window, spin, movie, movie_name,
 #'   ...)
-#'
 #' @param raster Raster layer to plot
 #' @param azimuth azimuth angle, default is 45
 #' @param coaltitude coaltitude angle, default is 30
@@ -1123,11 +1807,9 @@ PackCircles <- function(config,
 #' @param movie_name name of output gif movie. Default is saved in in working
 #'   directroy as "RasterSpin.gif"
 #' @param ... additional arguments for the hist3D() function
-#'
 #' @return Plot of Raster layer in RStudio, 3d plot in interactive rgl device
 #'   (optional), and a .gif movie of the plot rotating 360 degrees (optional)
 #' @export
-#'
 #' @details For additional arguments see ?persp3D. If a movie is made, a new
 #'   rgl window will open set with the proper dimensions, record the movie,
 #'   then automatically close. All NA values are converted to 0 because the
@@ -1256,18 +1938,11 @@ Plot3DRaster <- function(raster,
   }
 }
 
-#' PrintRasterNames
-#'
 #' Prints the position and name of the rasters in a RasterStack or RasterBrick
-#'
-#' @usage PrinttRasterNames(raster)
-#'
+#' @usage PrintRasterNames(raster)
 #' @param raster RasterStack or RasterBrick
-#'
 #' @return Prints a list of positions and names
 #' @export
-#'
-#'
 PrintRasterNames <- function(raster){
   raster <- raster
   for (i in 1:raster::nlayers(raster)){
@@ -1276,3 +1951,40 @@ PrintRasterNames <- function(raster){
   }
 }
 
+#' Converts radians to degrees
+#' @usage Rad2Deg(radians)
+#' @param radians numeric, angle in radians
+#' @return Angle in degrees
+#' @export
+Rad2Deg <- function(radian){
+  degree <- (radian * 180) / (pi)
+  return(degree)
+}
+
+
+#' Rotates a Raster in 2-dimensional space
+#' @usage RotateRaster(raster, angle, resolution)
+#' @param raster Raster
+#' @param angle numeric, degrees to rotate Raster
+#' @param resolution numeric, resolution of output Raster
+#' @return A raster
+#' @export
+#' @examples
+#' x <- raster(matrix(1:(15*25), nrow=15), xmn=-1000, xmx=1000, ymn=-1000,
+#' ymx=1000)
+#' plot(x, main="Original")
+#' plot(rotate(x, 30, resolution=10), main=paste("Rotated by 30 degrees"))
+#' plot(rotate(x, 75, resolution=10), main=paste("Rotated by 75 degrees"))
+#' plot(rotate(x, 180, resolution=10), main=paste("Rotated by 180 degrees"))
+#' plot(rotate(x, 300, resolution=10), main=paste("Rotated by 300 degrees"))
+#'
+RotateRaster <- function(raster,
+                         angle=0,
+                         resolution=res(raster)) {
+  raster_in <- raster
+  raster::crs(raster_in) <- "+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=0"
+  raster_rotated <- raster::projectRaster(raster_in, res=resolution,
+      crs=paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=", -angle))
+  raster::crs(raster_rotated) <- raster::crs(raster)
+  return(raster_rotated)
+}

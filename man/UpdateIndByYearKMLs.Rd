@@ -4,20 +4,20 @@
 \alias{UpdateIndByYearKMLs}
 \title{Creates or updates .kml files of each individual by year}
 \usage{
-UpdateIndByYearKMLs(data, update_only = TRUE, update_gdrive = TRUE)
+ExportKMLPolygon(df, update_year, update_gdrive)
 }
 \arguments{
-\item{data}{Dataframe of location data.}
+\item{df}{Dataframe of location data.}
 
-\item{update_only}{Logical, whether or not to just update current year's
-data. Default is TRUE.}
+\item{update_year}{integer, year to update. Default is NULL, which means all
+years are updated.}
 
 \item{update_gdrive}{Logical, whether to update the files on the GDrive.
 Default is TRUE.}
 }
 \value{
 Creates .kml files in "Data/GPS" and copies them to
-  "Google Drive/BAEA Project/Telemetry Data/Individuals" folders.
+    "Google Drive/BAEA Project/Telemetry Data/Individuals" folders.
 }
 \description{
 Creates and updates year KML files on local and GDrive folders.
