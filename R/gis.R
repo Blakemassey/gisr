@@ -1458,6 +1458,7 @@ PlotLogisticRange <- function(beta0,
 PlotLogisticRange2Par <- function(beta0 = -5,
                                   beta1 = 5,
                                   beta2 = 20){
+  viridis_col <- list(seq(0, 1, length.out = 100), (viridis(100, option ="C")))
   predictor1 <- seq(0, 1, by = .1)  #.01
   predictor2 <- seq(0, 1, by = .1)  #.01
   df <- crossing(predictor1, predictor2)
@@ -1469,7 +1470,15 @@ PlotLogisticRange2Par <- function(beta0 = -5,
     mutate(pred2 = as.factor(predictor2))
   title <- paste0("Logistic (", "beta0 = ", beta0, ", beta1 = ", beta1,
     ", beta2 = ", beta2,")")
+  z <- t(outer(predictor1, predictor2, f))
+  ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
   # Individual Graphs (USED FOR REFERENCE AND AD HOC PLOTTING) --
+  theme_legend <-
+    theme(plot.title=element_text(size=24, face="bold", vjust=1.5))+
+    theme(axis.title=element_text(size=20, face="bold")) +
+    theme(axis.text=element_text(colour="black")) +
+    theme(axis.text.x=element_text(size=16, angle=50, vjust=0.5)) +
+    theme(axis.text.y=element_text(size=16, vjust=0.5))
   g1 <- ggplot(df, aes(x=predictor1, y=prob, color=pred2)) +
     geom_line(lwd=1.5) + scale_color_viridis_d(option = "C") +
     labs(x="Predictor 1", y="Probability", title=title) +
@@ -1478,11 +1487,6 @@ PlotLogisticRange2Par <- function(beta0 = -5,
     geom_line(lwd=2) + scale_color_viridis_d(option = "C") +
     labs(x="Predictor 2", y="Probability", title=title) +
     guides(colour = guide_legend(reverse=T)) + theme_legend
-  #SaveGGPlot(filename = "g1.png", path = plot_dir)
-  #SaveGGPlot(filename = "g2.png", path = plot_dir)
-  z <- t(outer(predictor1, predictor2, f))
-  ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
-  viridis_col <- list(seq(0, 1, length.out = 100), (viridis(100, option ="C")))
   p3 <- plot_ly(width = 1024, height = 768) %>%
     add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
       colorbar=list(title='Probability', x = 0.9, y = 0.85,
@@ -1949,6 +1953,40 @@ PrintRasterNames <- function(raster){
   results <- paste(i,") ", names(raster[[i]]), sep="")
   cat(results, sep="\n")
   }
+}
+
+#' Rescale binary Raster to absolute distance Raster (0 at most 'internal' cell,
+#'     highest value at most 'distant' cell)
+#' @usage RescaleAndUniformRaster(raster)
+#' @param raster RasterLayer
+#' @return RasterLayer
+#' @export
+RescaleAbsoluteDistanceRaster <- function(ras){
+  ras2 <- ras1 <- ras
+  ras1[ras1 == 1] <- 1
+  ras1[ras1 == 0] <- NA
+  ras2[ras2 == 1] <- NA
+  ras2[ras2 == 0] <- 1
+  dist_ras1 <- raster::distance(ras1, doEdge = TRUE)
+  dist_ras2 <- raster::distance(ras2, doEdge = TRUE)*-1
+  out_ras <- dist_ras1 + dist_ras2
+  return(out_ras)
+}
+
+#' Rescale raster from 0-1 and redistribute values to a uniform distribution
+#' @usage RescaleAndUniformRaster(raster)
+#' @param raster RasterLayer
+#' @return RasterLayer
+#' @export
+RescaleAndUniformRaster <- function(ras){
+  ras[] <- scales::rescale(ras[], to = c(0, 1))
+  df <- data.frame(org_value = ras[]) %>%
+    mutate(n_row = 1:n()) %>%
+    arrange(org_value) %>%
+    mutate(new_value = seq(0, 1, length.out = ncell(ras))) %>%
+    arrange(n_row)
+  ras[] <- df$new_value
+  return(ras)
 }
 
 #' Converts radians to degrees
