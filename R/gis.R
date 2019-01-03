@@ -590,12 +590,40 @@ CreateColorPaletteLegend <- function (color_pal = c("yellow","red"),
 #'   the same significance value as the buffer
 CreateExtentBuffer <- function(df = df,
                                buffer = 500) {
-  extent_matrix <- c(round_any(min(df$long_utm) - buffer, buffer, floor),
-    round_any(max(df$long_utm) + buffer, buffer, ceiling),
-    round_any(min(df$lat_utm) - buffer, buffer, floor),
-    round_any(max(df$lat_utm) + buffer, buffer, ceiling))
+  extent_matrix <- c(plyr::round_any(min(df$long_utm) - buffer, buffer, floor),
+    plyr::round_any(max(df$long_utm) + buffer, buffer, ceiling),
+    plyr::round_any(min(df$lat_utm) - buffer, buffer, floor),
+    plyr::round_any(max(df$lat_utm) + buffer, buffer, ceiling))
   extent(extent_matrix)
 }
+
+#' Creates an 'sf' polygon based an 'sf' object's extent and aspect ratio
+#' @usage CreateMapExtentBB(sf_object, ext, asp)
+#' @param sf_object 'sf' object
+#' @param ext extension factor of the extent, default = 1.15.
+#' @param asp ratio of the extent (width/height), default = 1
+#' @return 'sf' object
+#' @details Useful for making a main-map extent box within a overview map. Not
+#'     guaranteed to be identical to a tmap's actual main map extent.
+#' @export
+CreateMapExtentBB <- function(sf_object,
+                              ext = 1.15,
+                              asp = 1){
+  map_asp <- asp
+  sf_asp <- tmaptools::get_asp_ratio(tmaptools::bb(sf_object, ext = ext))
+  if (sf_asp >= map_asp){
+    bb_width = ext     # width should not be reduced
+    bb_height = (sf_asp/map_asp)*ext
+  } else {
+    bb_width = (map_asp/sf_asp)*ext
+    bb_height = ext # height should not be reducted
+  }
+  map_bb <- sf::st_as_sfc(tmaptools::bb(sf_object, relative = TRUE,
+    width = bb_width, height = bb_height))
+  sf::st_crs(map_bb) <- sf::st_crs(sf_object)
+  return(map_bb)
+}
+
 
 #' Create a Gaussian Kernel RasterLayer
 #' @usage CreateGaussKernRaster(sigma, nrow, shift_n, cell_size)
@@ -643,7 +671,7 @@ CreateGaussKernRaster <- function(sigma,
 #' @param blank_raster file name or object name of raster file used to create
 #'   output. This raster is cropped based on the df's extent and kde estimates
 #'   are based on each cell's center. Default file is:
-#'   "C:/ArcGIS/Data/BlankRaster/maine_50mc.tif".
+#'   "C:/ArcGIS/Data/BlankRaster/maine_30mc.tif".
 #'
 #' @return A 'kde' object with a kde estimate for the center point of each blank
 #'   raster cell that falls within the buffer around the df locations
@@ -656,7 +684,7 @@ CreateKDEPoints <- function(df = df,
                             df_lat = "lat_utm",
                             buffer = 500,
                             blank_raster = file.path("C:/ArcGIS/Data",
-                              "BlankRaster/maine_50mc.tif")) {
+                              "BlankRaster/maine_30mc.tif")) {
   df_extent <- CreateExtentBuffer(df=df, buffer=500)
   if (is.raster(blank_raster) == TRUE){
     blank_raster <- blank_raster
@@ -757,6 +785,24 @@ CreateKDERaster <- function(kde_points = kde_points,
     digits=5)
   return(kde_raster)
 }
+
+#' Create bounding box needed for downloading an 'OpenStreetMap' or 'rosm'
+#'     baselayer
+#' @param sf_obj a 'sf' object, for determing bounding box coordinates
+#' @param type character, either "om_type" or "rosm_type", default = "om_type"
+#' @return a vector (for type = "rosm_type") or list (for type = "om_type")
+#' @export
+CreateOSMBaseBB <- function(sf_obj,
+                          type = c("om_type")){
+  sf_coords <- as.numeric(rev(sf::st_bbox(sf_obj %>%
+    sf::st_transform(crs = 4326))))
+  rosm_bb <- prettymapr::makebbox(sf_coords[1], sf_coords[2], sf_coords[3],
+    sf_coords[4])
+  om_bb <- list(c(rosm_bb[2,2], rosm_bb[1,1]), c(rosm_bb[2,1], rosm_bb[1,2]))
+  if(type == "rosm_type") return(rosm_bb)
+  if(type == "om_type") return(om_bb)
+}
+
 
 #' CreateProbIsoplethRaster
 #'
@@ -1434,42 +1480,55 @@ PlotLogisticRange <- function(beta0,
   predictors_logit <- beta0 + beta1*(predictors)
   df <- data.frame(predictors, probs = plogis(predictors_logit))
   (y_mid_int <- (-(1*beta0/beta1)))
-  rect_df <- data.frame(xmin = c(-.25, 1), ymin=c(0,0), xmax= c(0,1.25),
+  rect_df <- data.frame(xmin = c(-.25, 1), ymin = c(0,0), xmax = c(0,1.25),
     ymax = c(1,1))
   ggplot(df) + geom_line(aes(predictors, probs), color = "blue") +
     geom_segment(aes(x = y_mid_int, y = 0, xend = y_mid_int, yend = 1),
       color = "red") +
-    geom_rect(data = rect_df, alpha = .5, aes(xmin=xmin, ymin=ymin, xmax=xmax,
-      ymax=ymax)) +
+    geom_rect(data = rect_df, alpha = .5, aes(xmin = xmin, ymin = ymin,
+      xmax = xmax, ymax = ymax)) +
     annotate("text", x = y_mid_int + .03, y = .03, label = signif(y_mid_int, 2),
       color = "red") +
-    ylim(0,1) + labs(x = "Predictor", y = "Probability") + theme_no_legend +
+    ylim(0,1) + labs(x = "Predictor", y = "Probability") +
     ggtitle(paste0("Logistic (", "beta0 = ", beta0, ", beta1 = ",
       beta1, ")")) +
-    theme(plot.title = element_text(hjust = 0.5, vjust = 0))
+    theme(plot.title = element_text(size = 24, face = "bold", vjust = 1.5,
+      hjust = 0.5)) +
+    theme(axis.title = element_text(size = 20, face = "bold")) +
+    theme(axis.text = element_text(colour = "black")) +
+    theme(axis.text.x = element_text(size = 16, angle = 50, vjust = 0.5)) +
+    theme(axis.text.y = element_text(size = 16, vjust = 0.5)) +
+    theme(legend.position = "none")
 }
 
 #' Plot Logistic Function for two continous variables
 #' @param beta0 numeric, intercept
 #' @param beta1 numeric, slope parameter
 #' @param beta2 numeric, slope parameter
+#' @param main_only logical, whether to return only main plot. Default is FALSE.
+#' @import purrr
+#' @import ggplot2
+#' @importFrom plotly plot_ly add_surface add_trace layout subplot
 #' @return plotly plot
 #' @export
+#' @details Requres a Mapbox token and plotly username and api_key.
 PlotLogisticRange2Par <- function(beta0 = -5,
                                   beta1 = 5,
-                                  beta2 = 20){
-  viridis_col <- list(seq(0, 1, length.out = 100), (viridis(100, option ="C")))
+                                  beta2 = 20,
+                                  main_only = FALSE){
+  viridis_col <- list(seq(0, 1, length.out = 100), (viridis::viridis(100,
+    option ="C")))
   predictor1 <- seq(0, 1, by = .1)  #.01
   predictor2 <- seq(0, 1, by = .1)  #.01
-  df <- crossing(predictor1, predictor2)
+  df <- tidyr::crossing(predictor1, predictor2)
   f <- function(x, y) { r <- plogis(beta0 + x*beta1 + y*beta2)}
   #  f <- function(x, y) { r <- beta0 + x + y^2} # FOR TESTING PLOT AXES
   df <- df %>%
-    mutate(prob = map2_dbl(predictor1, predictor2, f)) %>%
+    mutate(prob = purrr::map2_dbl(predictor1, predictor2, f)) %>%
     mutate(pred1 = as.factor(predictor1)) %>%
     mutate(pred2 = as.factor(predictor2))
-  title <- paste0("Logistic (", "beta0 = ", beta0, ", beta1 = ", beta1,
-    ", beta2 = ", beta2,")")
+  title <- paste0("Logistic (", "beta0 = ", round(beta0, 2), ", beta1 = ",
+    beta1, ", beta2 = ", beta2,")")
   z <- t(outer(predictor1, predictor2, f))
   ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
   # Individual Graphs (USED FOR REFERENCE AND AD HOC PLOTTING) --
@@ -1487,7 +1546,8 @@ PlotLogisticRange2Par <- function(beta0 = -5,
     geom_line(lwd=2) + scale_color_viridis_d(option = "C") +
     labs(x="Predictor 2", y="Probability", title=title) +
     guides(colour = guide_legend(reverse=T)) + theme_legend
-  p3 <- plot_ly(width = 1024, height = 768) %>%
+  # Main plot only (returned when main_only == TRUE)
+  p3_only <- plot_ly(width = 1024, height = 768) %>%
     add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
       colorbar=list(title='Probability', x = 0.9, y = 0.85,
         titlefont = list(size =  18)),
@@ -1507,13 +1567,13 @@ PlotLogisticRange2Par <- function(beta0 = -5,
         tickfont = list(color = "grey50")),
       xaxis = list(title = "Predictor 1", automargin = TRUE, dtick = .1,
         tickfont = list(color = "grey50"))))
-  # Subplots together (THIS IS WHAT IS RETURNED) --
+  # Subplots together (returned when main_only == FALSE)
   p1 <- plot_ly(data = df) %>%
    add_trace(., type = "scatter", mode = "lines", x= ~predictor1,
-     y= ~prob, color = ~pred2, colors = viridis(10, option = "D"))
+     y= ~prob, color = ~pred2, colors = viridis::viridis(10, option = "D"))
   p2 <- plot_ly(data = df) %>%
    add_trace(., type = "scatter", mode = "lines", x= ~predictor2,
-     y= ~prob, color = ~pred1, colors = viridis(10, option = "D"),
+     y= ~prob, color = ~pred1, colors = viridis::viridis(10, option = "D"),
      showlegend = FALSE)
   p3 <- plot_ly() %>%
     add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
@@ -1556,7 +1616,11 @@ PlotLogisticRange2Par <- function(beta0 = -5,
         yaxis = list(dtick = .1, title = "Predictor 2"),
         zaxis = list(dtick = .25, title = "Prob"),
         name = "Pred1", domain=list(x=c(0.0,.65),y=c(0, 1))))
-  return(p1_3)
+  if(main_only){
+    return(p3_only)
+  } else {
+    return(p1_3)
+  }
 }
 
 #' Plot a matrix, with arguments for labels and coordinates
@@ -1955,6 +2019,36 @@ PrintRasterNames <- function(raster){
   }
 }
 
+#' Convert basemaps download from 'OpenStreetMaps' to Raster for use in tm_map
+#' @param osm_download download from OpenStreetMaps::openmap()
+#' @return a RasterLayer
+#' @export
+RasterizeOMDownload <- function(osm_download){
+  osm_d <- osm_download
+  cols <- as.factor(osm_d[1][[1]][[1]]$colorData) # vec of hexdecimal colors
+  osm_s <- raster::raster(osm_d) # convert OpenStreetMap to RasterStack
+  osm_r <- raster::raster(osm_s) # Conver RasterStack to RasterLayer
+  osm_r <- raster::setValues(osm_r, as.integer(cols) - 1L) # Ras w/values 1-255
+  raster::colortable(osm_r) <- levels(cols)
+  attr(osm_r, "is.OSM") <- TRUE
+  return(osm_r) # RasterLayer with colortable
+}
+
+#' Convert basemaps download from 'rosm' to Raster for use in tm_map
+#' @param rosm_download download from rosm::osm.raster()
+#' @return a RasterLayer
+#' @export
+RasterizeROSMDownload <- function(rosm_download){
+  rosm_d <- rosm_download
+  rosm_s <- raster::trim(raster::stack(rosm_d)) # Make Stack, then trim NA cells
+  rosm_s[is.na(rosm_s)] <- 0
+  cols <- as.factor(grDevices::rgb(rosm_s[], maxColorValue = 255))
+  rosm_r <- raster::raster(rosm_s)
+  rosm_r <- raster::setValues(rosm_r, as.integer(cols) - 1L)
+  raster::colortable(rosm_r) <- levels(as.factor(cols))
+  return(rosm_r)
+}
+
 #' Rescale binary Raster to absolute distance Raster (0 at most 'internal' cell,
 #'     highest value at most 'distant' cell)
 #' @usage RescaleAndUniformRaster(raster)
@@ -1970,6 +2064,7 @@ RescaleAbsoluteDistanceRaster <- function(ras){
   dist_ras1 <- raster::distance(ras1, doEdge = TRUE)
   dist_ras2 <- raster::distance(ras2, doEdge = TRUE)*-1
   out_ras <- dist_ras1 + dist_ras2
+  names(out_ras) <- names(ras)
   return(out_ras)
 }
 

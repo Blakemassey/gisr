@@ -21,7 +21,7 @@ is 500m}
 \item{blank_raster}{file name or object name of raster file used to create
 output. This raster is cropped based on the df's extent and kde estimates
 are based on each cell's center. Default file is:
-"C:/ArcGIS/Data/BlankRaster/maine_50mc.tif".}
+"C:/ArcGIS/Data/BlankRaster/maine_30mc.tif".}
 }
 \value{
 A 'kde' object with a kde estimate for the center point of each blank
