@@ -1500,8 +1500,7 @@ PlotLogisticRange <- function(beta0,
     theme(axis.text.y = element_text(size = 16, vjust = 0.5)) +
     theme(legend.position = "none")
 }
-
-#' Plot Logistic Function for two continous variables
+#' Plot Logistic Function for two continous variables [0, 1]
 #' @param beta0 numeric, intercept
 #' @param beta1 numeric, slope parameter
 #' @param beta2 numeric, slope parameter
@@ -1512,10 +1511,10 @@ PlotLogisticRange <- function(beta0,
 #' @return plotly plot
 #' @export
 #' @details Requres a Mapbox token and plotly username and api_key.
-PlotLogisticRange2Par <- function(beta0 = -5,
-                                  beta1 = 5,
-                                  beta2 = 20,
-                                  main_only = FALSE){
+PlotLogisticRange2Betas <- function(beta0 = -5,
+                                    beta1 = 5,
+                                    beta2 = 20,
+                                    main_only = FALSE){
   viridis_col <- list(seq(0, 1, length.out = 100), (viridis::viridis(100,
     option ="C")))
   predictor1 <- seq(0, 1, by = .1)  #.01
@@ -1622,6 +1621,142 @@ PlotLogisticRange2Par <- function(beta0 = -5,
     return(p1_3)
   }
 }
+
+#' Plot Logistic Function for two continous variables [0, 1] (with a constant
+#'     third)
+#' @param beta0 numeric, intercept
+#' @param beta1 numeric, slope parameter
+#' @param beta2 numeric, slope parameter
+#' @param beta3 numeric, slope parameter
+#' @param pred_held integer, surface to hold constant
+#' @param pred_value integer, value for constant surface
+#' @param main_only logical, whether to return only main plot. Default is FALSE.
+#' @import purrr
+#' @import ggplot2
+#' @importFrom plotly plot_ly add_surface add_trace layout subplot
+#' @return plotly plot
+#' @export
+#' @details Requres a Mapbox token and plotly username and api_key.
+PlotLogisticRange3Betas <- function(beta0 = 17.5,
+                                    beta1 = -5,
+                                    beta2 = -10,
+                                    beta3 = -20,
+                                    pred_held = 1,
+                                    pred_value = .25,
+                                    main_only = FALSE){
+  viridis_col <- list(seq(0, 1, length.out = 100), (viridis::viridis(100,
+    option ="C")))
+  predictor1 <- seq(0, 1, by = .1)  #.01
+  predictor2 <- seq(0, 1, by = .1)  #.01
+  df <- tidyr::crossing(predictor1, predictor2)
+  pred1_held <- pred2_held <- pred3_held <- ""
+  if(pred_held == 1){
+    f <- function(x, y) {r <- plogis(beta0 + pred_value*beta1 + x*beta2 +
+      y*beta3)}
+    pred1_held <- paste0("(pred1 = ", pred_value,")")
+    pred_x_label = "Predictor 2"
+    pred_y_label = "Predictor 3"
+  } else if (pred_held == 2){
+    f <- function(x, y) {r <- plogis(beta0 + x*beta1 + pred_value*beta2 +
+      y*beta3)}
+    pred2_held <- paste0("(pred2 = ", pred_value,")")
+    pred_x_label = "Predictor 1"
+    pred_y_label = "Predictor 3"
+  } else if (pred_held == 3){
+    f <- function(x, y) {r <- plogis(beta0 + x*beta1 + y*beta2 +
+        pred_value*beta3)}
+    pred3_held <- paste0("(pred3 = ", pred_value,")")
+    pred_x_label = "Predictor 1"
+    pred_y_label = "Predictor 2"
+  }
+  #  f <- function(x, y) { r <- beta0 + x + y^2} # FOR TESTING PLOT AXES
+  df <- df %>%
+    mutate(prob = purrr::map2_dbl(predictor1, predictor2, f)) %>%
+    mutate(pred1 = as.factor(predictor1)) %>%
+    mutate(pred2 = as.factor(predictor2))
+  title <- paste0("Logistic (beta0 = ", round(beta0, 2), ", beta1 = ",
+    beta1, pred1_held, ", beta2 = ", beta2, pred_held2, ", beta3 = ",
+    beta3, pred_held3, ")")
+  z <- t(outer(predictor1, predictor2, f))
+  ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
+  # Main plot only (returned when main_only == TRUE)
+  p3_only <- plot_ly(width = 1024, height = 768) %>%
+    add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
+      colorbar=list(title='Probability', x = 0.9, y = 0.85,
+        titlefont = list(size =  18)),
+      contours = list(x = list(show = TRUE), y = list(show = TRUE)),
+      name = "Probability", showscale = TRUE, colorscale = viridis_col,
+      showlegend = TRUE)  %>%
+    layout( #font = list(size = 14),
+      margin = list(t = 75),
+      title = paste0("\n", title),
+      titlefont = list(size =  25),
+      scene = list(
+        camera = list(
+          center = list(x = 0, y = 0, z = -.1),
+          eye = list(x = -1.25, y = -1.25, z = 1.25)),
+      zaxis = list(title = "Probability"),
+      xaxis = list(title = pred_x_label, automargin = TRUE, dtick = .1,
+        tickfont = list(color = "grey50")),
+      yaxis = list(title = pred_y_label, automargin = TRUE, dtick = .1,
+        tickfont = list(color = "grey50")))
+      )
+  # Subplots together (returned when main_only == FALSE)
+  p1 <- plot_ly(data = df) %>%
+   add_trace(., type = "scatter", mode = "lines", x= ~predictor1,
+     y= ~prob, color = ~pred2, colors = viridis::viridis(10, option = "D"))
+  p2 <- plot_ly(data = df) %>%
+   add_trace(., type = "scatter", mode = "lines", x= ~predictor2,
+     y= ~prob, color = ~pred1, colors = viridis::viridis(10, option = "D"),
+     showlegend = FALSE)
+  p3 <- plot_ly() %>%
+    add_surface(data = ls, x = ls$predictor1, y = ls$predictor2, z = ls$z,
+      contours = list(x = list(show = TRUE), y = list(show = TRUE)),
+      name = "Probability", showscale = TRUE, colorscale = viridis_col,
+      showlegend = TRUE, name = "Function",
+      colorbar = list(x = 0, y = 0.05, len = 0.3, lenmode = "fraction",
+        thickness = 0.03, thicknessmode = "fraction",  ticklen = 2, title =
+        "Probability", titlefont = list(size = 13), yanchor = "bottom")) %>%
+      layout(xaxis = list(anchor = "y"), yaxis = list(anchor = "x"))
+  p1_3 <-
+    subplot(p3,
+      subplot(p1, p2, nrows = 2, heights = c(.45, .45), margin = 0.1),
+      nrows = 1, widths = c(.62, .38), margin = 0.05) %>%
+    layout(title = title,
+      showlegend = TRUE,
+      legend = list(traceorder = "reversed",
+        x = 1.025, y = 0.6,  bgcolor = "rgba(255,255,255,1)",
+        bordercolor = "transparent", borderwidth = 2,
+        font = list(color = "rgba(0, 0, 0, 1)", family = "", size = 11),
+        orientation = "v", xanchor = "left", yanchor = "top"),
+      xaxis = list(title = "TEST1"), # May not be neeeded
+      yaxis = list(title = "TEST2"), # May not be neeeded
+      xaxis2 = list(dtick = .1, title = pred_x_label),
+      yaxis2 = list(dtick = .1, title = "Probability"),
+      xaxis3 = list(dtick = .1, title = pred_y_label),
+      yaxis3 = list(dtick = .1, title = "Probability"),
+      annotations = list(
+        list(x = 1.025, y = 0.6, ax = 0, ay = 0,
+          font = list(color = "rgba(0, 0, 0, 1)", family = "", size = 12),
+          showarrow = FALSE, text = "Other <br> predictor <br> value <br>",
+          textangle = 0, xanchor = "left", xref = "paper", yanchor = "bottom",
+          yref = "paper")),
+      margin = list(l = 0, r = 50, t = 75, b = 50),
+      scene = list(showlegend = FALSE,  showscale = FALSE,
+        camera = list(
+          center = list(x = 0, y = 0, z = -0.15),
+          eye = list(x = -1.6, y = -1.6, z = 1.6)),
+        xaxis = list(dtick = .1, title = pred_x_label),
+        yaxis = list(dtick = .1, title = pred_y_label),
+        zaxis = list(dtick = .25, title = "Prob"),
+        name = "Pred1", domain = list(x = c(0.0, 0.65), y = c(0, 1))))
+  if(main_only){
+    return(p3_only)
+  } else {
+    return(p1_3)
+  }
+}
+
 
 #' Plot a matrix, with arguments for labels and coordinates
 #' @param mat matrix
