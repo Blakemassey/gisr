@@ -1675,8 +1675,8 @@ PlotLogisticRange3Betas <- function(beta0 = 17.5,
     mutate(pred1 = as.factor(predictor1)) %>%
     mutate(pred2 = as.factor(predictor2))
   title <- paste0("Logistic (beta0 = ", round(beta0, 2), ", beta1 = ",
-    beta1, pred1_held, ", beta2 = ", beta2, pred_held2, ", beta3 = ",
-    beta3, pred_held3, ")")
+    beta1, pred1_held, ", beta2 = ", beta2, pred2_held, ", beta3 = ",
+    beta3, pred3_held, ")")
   z <- t(outer(predictor1, predictor2, f))
   ls <- list(predictor1 = predictor1, predictor2 = predictor2, z = z)
   # Main plot only (returned when main_only == TRUE)
