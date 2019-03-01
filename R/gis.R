@@ -150,7 +150,6 @@ CalculateTerrainMetric <- function(elev,
   return(out_matrix)
 }
 
-
 #' Centers x,y data based on a 'base' raster
 #'
 #' Centers x and y values of a dataframe into the center of raster cells based
@@ -377,6 +376,7 @@ CreateCategoricalLegend <-function(metadata,
   par(new = FALSE)
   par(mar = omar)
 }
+
 #' Create a Matrix with a specific value in the center cell
 #'
 #' @param nrow integer, number of rows
@@ -624,7 +624,6 @@ CreateMapExtentBB <- function(sf_object,
   return(map_bb)
 }
 
-
 #' Create a Gaussian Kernel RasterLayer
 #' @usage CreateGaussKernRaster(sigma, nrow, shift_n, cell_size)
 #'
@@ -802,7 +801,6 @@ CreateOSMBaseBB <- function(sf_obj,
   if(type == "rosm_type") return(rosm_bb)
   if(type == "om_type") return(om_bb)
 }
-
 
 #' CreateProbIsoplethRaster
 #'
@@ -1006,8 +1004,8 @@ CreateSpatialPolygons <- function (df = df,
   df <- df
   coordinates(df) <- c(long, lat)
   coords <- sp::coordinates(df)
-  spatial_polygon <- sp::SpatialPolygons(list(Polygons(list(Polygon(coords)), "1")),
-    proj4string = sp::CRS(crs))
+  spatial_polygon <- sp::SpatialPolygons(list(Polygons(list(Polygon(coords)),
+    "1")), proj4string = sp::CRS(crs))
   return(spatial_polygon)
 }
 
@@ -1393,7 +1391,6 @@ PlotBWOptimRasters <- function(covar_ras,
   grid.arrange(gg1, gg2, gg3, gg4, nrow = 2, ncol = 2)
 }
 
-
 #' Plot 4 ggplots for optimization procedure
 #' @param covar_ras RasterLayer
 #' @param covar_ras_smooth RasterLayer
@@ -1463,7 +1460,6 @@ PlotBWRaster <- function(in_raster,
   gg
 }
 
-
 #' Plot a Logisitic function (with probability on the y-axis)
 #' @param beta0 numeric, intercept used in function
 #' @param beta1 numeric, slope used in function
@@ -1500,6 +1496,7 @@ PlotLogisticRange <- function(beta0,
     theme(axis.text.y = element_text(size = 16, vjust = 0.5)) +
     theme(legend.position = "none")
 }
+
 #' Plot Logistic Function for two continous variables [0, 1]
 #' @param beta0 numeric, intercept
 #' @param beta1 numeric, slope parameter
@@ -1719,8 +1716,8 @@ PlotLogisticRange3Betas <- function(beta0 = 17.5,
         "Probability", titlefont = list(size = 13), yanchor = "bottom")) %>%
       layout(xaxis = list(anchor = "y"), yaxis = list(anchor = "x"))
   p1_3 <-
-    subplot(p3,
-      subplot(p1, p2, nrows = 2, heights = c(.45, .45), margin = 0.1),
+    plotly::subplot(p3,
+      plotly::subplot(p1, p2, nrows = 2, heights = c(.45, .45), margin = 0.1),
       nrows = 1, widths = c(.62, .38), margin = 0.05) %>%
     layout(title = title,
       showlegend = TRUE,
@@ -1756,7 +1753,6 @@ PlotLogisticRange3Betas <- function(beta0 = 17.5,
     return(p1_3)
   }
 }
-
 
 #' Plot a matrix, with arguments for labels and coordinates
 #' @param mat matrix
@@ -2229,7 +2225,6 @@ Rad2Deg <- function(radian){
   return(degree)
 }
 
-
 #' Rotates a Raster in 2-dimensional space
 #' @usage RotateRaster(raster, angle, resolution)
 #' @param raster Raster
@@ -2255,4 +2250,25 @@ RotateRaster <- function(raster,
       crs=paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=", -angle))
   raster::crs(raster_rotated) <- raster::crs(raster)
   return(raster_rotated)
+}
+
+#' Smooth a RasterLayer using 'smoothie' package
+#' Wrapper function to convert a Raster to a matrix, smooth the matrix using
+#'     gauss2dsmooth(), and convert the smoothed matrix back into a Raster
+#' @param sigma numeric, bandwidth (in cells) for gauss2dsmooth
+#' @param covar RasterLayer name in quotes (e.g., "covar1")
+#' @return RasterLayer
+#' @export
+SmoothRaster <- function(sigma = sigma, covar = covar){
+  print(paste0("Starting: ", covar, ", sigma = ", sigma))
+  covar <- get(covar)
+  if (sigma >= 1) {
+    covar_smooth <- raster(covar) # creates blank raster
+    values(covar_smooth) <- gauss2dsmooth(as.matrix(covar), lambda = sigma,
+      nx = RoundTo(nrow(covar), 2), ny = RoundTo(ncol(covar), 2))
+  } else {
+    covar_smooth <- covar
+  }
+  names(covar_smooth) <- paste0(names(covar), sigma)
+  return(covar_smooth)
 }
