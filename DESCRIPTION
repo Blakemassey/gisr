@@ -1,7 +1,7 @@
 Package: gisr
 Type: Package
 Title: Functions for Spatial Data Manipulation and Plotting  
-Version: 0.2.0
+Version: 0.3.0
 Author: person("Blake", "Massey",, "blakemassey@gmail.com", c("aut", "cre"))
 Maintainer: Blake Massey <blakemassey@gmail.com>
 Description: This package contains functions for creating, managing, plotting, 
@@ -12,6 +12,7 @@ LazyData: true
 Imports:
   circular,
   CircStats,
+  DescTools,
   dplyr,
   ggforce,
   ggplot2,
@@ -32,6 +33,8 @@ Imports:
   RColorBrewer,
   rgdal,
   scales,
+  sf,
+  smoothie,
   sp,
   tools,
   viridis

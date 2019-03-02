@@ -2263,12 +2263,13 @@ SmoothRaster <- function(sigma = sigma, covar = covar){
   print(paste0("Starting: ", covar, ", sigma = ", sigma))
   covar <- get(covar)
   if (sigma >= 1) {
-    covar_smooth <- raster(covar) # creates blank raster
-    values(covar_smooth) <- gauss2dsmooth(as.matrix(covar), lambda = sigma,
-      nx = RoundTo(nrow(covar), 2), ny = RoundTo(ncol(covar), 2))
+    covar_smooth <- raster::raster(covar) # creates blank raster
+    values(covar_smooth) <- smoothie::gauss2dsmooth(raster::as.matrix(covar),
+      lambda = sigma, nx = DescTools::RoundTo(nrow(covar), 2),
+      ny = DescTools::RoundTo(ncol(covar), 2))
   } else {
     covar_smooth <- covar
   }
-  names(covar_smooth) <- paste0(names(covar), sigma)
+  names(covar_smooth) <- paste0(names(covar), as.character(sigma))
   return(covar_smooth)
 }
