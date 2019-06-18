@@ -84,7 +84,7 @@ AddNestData <- function(df = df,
   df <- df
   nests <- read.csv(nests_use, header=TRUE, stringsAsFactors=FALSE,
       row.names=NULL) %>%
-    dplyr::left_join(., readRDS(nests_study) %>% mutate(nests_area =
+    dplyr::left_join(., readRDS(nests_study) %>% dplyr::mutate(nests_area =
         as.character(nest_area)),
       by=c("name", "nest_site", "nest_area")) %>%
     dplyr::mutate(
@@ -112,6 +112,7 @@ AddNestData <- function(df = df,
     df[sv, (ncol(df)-length(nest)+1):ncol(df)] <- nest[1,]
   }
   df <- df %>% dplyr::select(-eagle_id)
+  df <- df[, !duplicated(colnames(df), fromLast = TRUE)]
   df$nest_angle <- CalculateAngleToPoint(df$long_utm, df$lat_utm,
     df$nest_long_utm, df$nest_lat_utm)
   df <- df %>%
