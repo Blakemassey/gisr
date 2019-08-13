@@ -111,8 +111,8 @@ AddNestData <- function(df = df,
       df$date <= use_end_date
     df[sv, (ncol(df)-length(nest)+1):ncol(df)] <- nest[1,]
   }
-  df <- df %>% dplyr::select(-eagle_id)
   df <- df[, !duplicated(colnames(df), fromLast = TRUE)]
+  df <- df %>% dplyr::select(-eagle_id)
   df$nest_angle <- CalculateAngleToPoint(df$long_utm, df$lat_utm,
     df$nest_long_utm, df$nest_lat_utm)
   df <- df %>%
