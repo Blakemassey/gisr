@@ -1467,7 +1467,7 @@ PlotBWRaster <- function(in_raster,
 #' @param max_X numeric, maximum on x axis
 #' @return ggplot
 #' @export
-#' @examples PlotLogisticZeroOneRange(intercept = 5, beta = -10)
+#' @examples PlotLogisticRange(beta0 = 5, beta1 = -10)
 PlotLogisticRange <- function(beta0,
                               beta1,
                               min_x = -.25,
@@ -2233,22 +2233,23 @@ Rad2Deg <- function(radian){
 #' @return A raster
 #' @export
 #' @examples
-#' x <- raster(matrix(1:(15*25), nrow=15), xmn=-1000, xmx=1000, ymn=-1000,
-#' ymx=1000)
+#' library(raster)
+#' x <- raster(matrix(1:(15*25), nrow = 15), xmn = -1000, xmx = 1000,
+#' ymn = -1000, ymx = 1000)
 #' plot(x, main="Original")
-#' plot(rotate(x, 30, resolution=10), main=paste("Rotated by 30 degrees"))
-#' plot(rotate(x, 75, resolution=10), main=paste("Rotated by 75 degrees"))
-#' plot(rotate(x, 180, resolution=10), main=paste("Rotated by 180 degrees"))
-#' plot(rotate(x, 300, resolution=10), main=paste("Rotated by 300 degrees"))
+#' plot(RotateRaster(x, 30, 10), main = paste("Rotated by 30 degrees"))
+#' plot(RotateRaster(x, 75, 10), main = paste("Rotated by 75 degrees"))
+#' plot(RotateRaster(x, 180, 10), main = paste("Rotated by 180 degrees"))
+#' plot(RotateRaster(x, 300, 10), main = paste("Rotated by 300 degrees"))
 #'
 RotateRaster <- function(raster,
-                         angle=0,
+                         angle = 0,
                          resolution=res(raster)) {
   raster_in <- raster
   raster::crs(raster_in) <- "+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=0"
-  raster_rotated <- raster::projectRaster(raster_in, res=resolution,
-      crs=paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=", -angle))
-  raster::crs(raster_rotated) <- raster::crs(raster)
+  raster_rotated <- raster::projectRaster(raster_in, res = resolution,
+      crs = paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=", -angle))
+  raster::crs(raster_rotated) <- raster::crs(raster_in)
   return(raster_rotated)
 }
 

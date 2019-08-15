@@ -22,5 +22,5 @@ ggplot
 Plot a Logisitic function (with probability on the y-axis)
 }
 \examples{
-PlotLogisticZeroOneRange(intercept = 5, beta = -10)
+PlotLogisticRange(beta0 = 5, beta1 = -10)
 }

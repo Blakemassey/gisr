@@ -20,12 +20,13 @@ A raster
 Rotates a Raster in 2-dimensional space
 }
 \examples{
-x <- raster(matrix(1:(15*25), nrow=15), xmn=-1000, xmx=1000, ymn=-1000,
-ymx=1000)
+library(raster)
+x <- raster(matrix(1:(15*25), nrow = 15), xmn = -1000, xmx = 1000,
+ymn = -1000, ymx = 1000)
 plot(x, main="Original")
-plot(rotate(x, 30, resolution=10), main=paste("Rotated by 30 degrees"))
-plot(rotate(x, 75, resolution=10), main=paste("Rotated by 75 degrees"))
-plot(rotate(x, 180, resolution=10), main=paste("Rotated by 180 degrees"))
-plot(rotate(x, 300, resolution=10), main=paste("Rotated by 300 degrees"))
+plot(RotateRaster(x, 30, 10), main = paste("Rotated by 30 degrees"))
+plot(RotateRaster(x, 75, 10), main = paste("Rotated by 75 degrees"))
+plot(RotateRaster(x, 180, 10), main = paste("Rotated by 180 degrees"))
+plot(RotateRaster(x, 300, 10), main = paste("Rotated by 300 degrees"))
 
 }
