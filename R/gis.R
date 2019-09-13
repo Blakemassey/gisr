@@ -1129,6 +1129,27 @@ ExtractRasterCenterRow <- function(raster_in){
   return(df_out)
 }
 
+
+#' Get Intersection Area
+#' Gets the overlapping area of two sf polygon objects
+#'
+#' @param poly_a sf polygon object
+#' @param poly_b sf polygon object
+#'
+#' @return
+#' @export
+#' @details When two polygons have no overlap, the result is 0 in the units of
+#'     the respective polygons
+#'
+GetIntersectionArea <- function(poly_a, poly_b){
+  x <- st_area(st_intersection(poly_a, poly_b))
+  y <- 0
+  units(y) <- as_units(units(x))
+  if(length(x) == 1) result <- x
+  if(length(x) == 0) result <- y
+  return(result)
+}
+
 #' ImportLandscapeRasterStack
 #'
 #' Imports raster layers and combines them into a RasterStack
