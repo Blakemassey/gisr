@@ -311,7 +311,7 @@ CompileDownloads <- function(units = "deployed",
     }
   }
   suppressWarnings(df <- do.call("rbind", units_list))
-  df <- subset(df, select=serial:alt)
+  df <- df %>% dplyr::select(serial:alt, vdop)
   df[which(colnames(df) == "speed")] <- as.integer(round(df$speed))
   df[which(colnames(df) == "alt")] <- as.integer(round(df$alt))
   df$serial <- substr(df$serial, nchar(df$serial)-5+1, nchar(df$serial))

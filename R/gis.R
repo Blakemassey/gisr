@@ -16,7 +16,7 @@ AddElevationData <- function(df,
                              long = "long_utm",
                              lat = "lat_utm"){
   df <- df
-  elev_30mc <-raster::raster("C:/ArcGIS/Data/Elevation/Elevation/elev_30mc.tif")
+  elev_30mc <-raster::raster("C:/ArcGIS/Data/R_Input/BAEA/elev_30mc.tif")
   locs_xy <- cbind(df[,long], df[,lat])
   df[, "elev"] <- raster::extract(elev_30mc, locs_xy)
   df$agl <- df$alt - df$elev
