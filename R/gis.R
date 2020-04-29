@@ -114,7 +114,10 @@ AddUTMCoordinates <- function(df,
 #'
 #' @param elev RasterLayer, elevation data raster
 #' @param size numeric, dimensions of analysis window (nrow and ncol). Must be
-#'   odd number.
+#'   odd number. When size == 0, it is internally converted to size == 1 which
+#'   is necessary for the metric to be calculated (and not just revert to the
+#'   'elev' layer. This was done to allow an optimization procedure to include
+#'   a "sigma = 0", even though that would be identical to size == 1.
 #' @param metric character, vector containing one of these options: tpi, tri,
 #'   roughness (see Details)
 #'
@@ -125,6 +128,7 @@ AddUTMCoordinates <- function(df,
 CalculateTerrainMetric <- function(elev,
                                    size,
                                    metric){
+  if(size == 0) size <- 1
   x <- elev
   weight_matrix <- matrix(1, nrow=size, ncol=size)
   center <- ceiling(0.5 * length(weight_matrix))
