@@ -4,13 +4,26 @@
 \alias{ExportKMLPoints}
 \title{ExportKMLPoints}
 \usage{
-ExportKMLPoints(df, id = "id", lat = "lat", long = "long",
-  alt = NULL, alt_mode = "clampToGround",
-  icon_href = file.path("http://maps.google.com",
-  "mapfiles/kml//paddle/wht-blank.png"), icon_scale = 0.7,
-  point_col_var = NULL, point_color = NULL, point_metadata = NULL,
-  point_pal = NULL, point_r_pal = NULL, point_b_pal = "Set1",
-  extrude = FALSE, labelscale = 0, file = NULL, output_dir = NULL)
+ExportKMLPoints(
+  df,
+  id = "id",
+  lat = "lat",
+  long = "long",
+  alt = NULL,
+  alt_mode = "clampToGround",
+  icon_href = file.path("http://maps.google.com", "mapfiles/kml//paddle/wht-blank.png"),
+  icon_scale = 0.7,
+  point_col_var = NULL,
+  point_color = NULL,
+  point_metadata = NULL,
+  point_pal = NULL,
+  point_r_pal = NULL,
+  point_b_pal = "Set1",
+  extrude = FALSE,
+  labelscale = 0,
+  file = NULL,
+  output_dir = NULL
+)
 }
 \arguments{
 \item{df}{input dataframe, must have id, lat, long, and datetime}

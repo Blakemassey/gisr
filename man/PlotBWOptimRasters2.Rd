@@ -4,9 +4,16 @@
 \alias{PlotBWOptimRasters2}
 \title{Plot 4 ggplots for optimization procedure}
 \usage{
-PlotBWOptimRasters2(covar_ras, covar_ras_smooth, prob_ras, pred_ras,
-  in_intercept = in_intercept, in_beta1 = in_beta1,
-  in_sigma = in_sigma, col_option = "D")
+PlotBWOptimRasters2(
+  covar_ras,
+  covar_ras_smooth,
+  prob_ras,
+  pred_ras,
+  in_intercept = in_intercept,
+  in_beta1 = in_beta1,
+  in_sigma = in_sigma,
+  col_option = "D"
+)
 }
 \arguments{
 \item{covar_ras}{RasterLayer}

@@ -3,7 +3,6 @@
 \docType{package}
 \name{gisr}
 \alias{gisr}
-\alias{gisr-package}
 \title{gisr: GIS and KML functions}
 \description{
 This package contains functions for creating, managing, plotting, and

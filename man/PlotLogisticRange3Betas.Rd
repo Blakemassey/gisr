@@ -5,8 +5,15 @@
 \title{Plot Logistic Function for two continous variables [0, 1] (with a constant
     third)}
 \usage{
-PlotLogisticRange3Betas(beta0 = 17.5, beta1 = -5, beta2 = -10,
-  beta3 = -20, pred_held = 1, pred_value = 0.25, main_only = FALSE)
+PlotLogisticRange3Betas(
+  beta0 = 17.5,
+  beta1 = -5,
+  beta2 = -10,
+  beta3 = -20,
+  pred_held = 1,
+  pred_value = 0.25,
+  main_only = FALSE
+)
 }
 \arguments{
 \item{beta0}{numeric, intercept}

@@ -12,6 +12,9 @@ GetIntersectionArea(poly_a, poly_b)
 
 \item{poly_b}{sf polygon object}
 }
+\value{
+
+}
 \description{
 Get Intersection Area
 Gets the overlapping area of two sf polygon objects

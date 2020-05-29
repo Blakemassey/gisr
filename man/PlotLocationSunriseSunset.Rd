@@ -4,10 +4,20 @@
 \alias{PlotLocationSunriseSunset}
 \title{Plots locations related to sunrise and sunset}
 \usage{
-PlotLocationSunriseSunset(df = df, by = "id", individual = "",
-  color_factor = NULL, pal = NULL, b_pal = "Set1", start = NULL,
-  end = NULL, breaks = "1 days", tz = "Etc/GMT+5",
-  addsolartimes = FALSE, wrap = TRUE)
+PlotLocationSunriseSunset(
+  df = df,
+  by = "id",
+  individual = "",
+  color_factor = NULL,
+  pal = NULL,
+  b_pal = "Set1",
+  start = NULL,
+  end = NULL,
+  breaks = "1 days",
+  tz = "Etc/GMT+5",
+  addsolartimes = FALSE,
+  wrap = TRUE
+)
 }
 \arguments{
 \item{df}{Dataframe with id, lat, long, datetime.}
@@ -38,8 +48,6 @@ data first. Default FALSE.}
 
 \item{wrap}{Logical, whether or not to wrap ribbon of panels into 2d.
 Default is TRUE.}
-
-\item{color_factor}{Column names, factor to determine location point color.}
 }
 \value{
 Plot of locations over a range of dates

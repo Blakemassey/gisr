@@ -4,8 +4,12 @@
 \alias{PlotRasterAsMatrix}
 \title{Plot a raster as a matrix}
 \usage{
-PlotRasterAsMatrix(raster_in, title = NULL, legend = "Value",
-  all_coords = TRUE)
+PlotRasterAsMatrix(
+  raster_in,
+  title = NULL,
+  legend = "Value",
+  all_coords = TRUE
+)
 }
 \arguments{
 \item{raster_in, }{RasterLayer}

@@ -4,8 +4,12 @@
 \alias{SendWeeklyData}
 \title{Creates and emails weekly .kml data}
 \usage{
-SendWeeklyData(data = data, send_email = TRUE, date = now(),
-  to = c("erynn.call@maine.gov", "charlie.todd@maine.gov"))
+SendWeeklyData(
+  data = data,
+  send_email = TRUE,
+  date = now(),
+  to = c("erynn.call@maine.gov", "charlie.todd@maine.gov")
+)
 }
 \arguments{
 \item{data}{Dataframe of deployed data.}

@@ -4,9 +4,16 @@
 \alias{PlotRasterKernSlice}
 \title{Wrapper function to create, slice, and plot a Gaussian Kernel Raster}
 \usage{
-PlotRasterKernSlice(raster_in = NULL, sigma = 1, nrow = 21,
-  shift_n = 0, cell_size = 30, title = NULL, normalize = FALSE,
-  dnorm_line = FALSE)
+PlotRasterKernSlice(
+  raster_in = NULL,
+  sigma = 1,
+  nrow = 21,
+  shift_n = 0,
+  cell_size = 30,
+  title = NULL,
+  normalize = FALSE,
+  dnorm_line = FALSE
+)
 }
 \arguments{
 \item{raster_in}{Raster*, overrides sigma and nrow below when provided.

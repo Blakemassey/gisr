@@ -10,7 +10,10 @@ CalculateTerrainMetric(elev, size, metric)
 \item{elev}{RasterLayer, elevation data raster}
 
 \item{size}{numeric, dimensions of analysis window (nrow and ncol). Must be
-odd number.}
+odd number. When size == 0, it is internally converted to size == 1 which
+is necessary for the metric to be calculated (and not just revert to the
+'elev' layer. This was done to allow an optimization procedure to include
+a "sigma = 0", even though that would be identical to size == 1.}
 
 \item{metric}{character, vector containing one of these options: tpi, tri,
 roughness (see Details)}

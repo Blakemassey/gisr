@@ -4,8 +4,7 @@
 \alias{PlotLogisticRange2Betas}
 \title{Plot Logistic Function for two continous variables [0, 1]}
 \usage{
-PlotLogisticRange2Betas(beta0 = -5, beta1 = 5, beta2 = 20,
-  main_only = FALSE)
+PlotLogisticRange2Betas(beta0 = -5, beta1 = 5, beta2 = 20, main_only = FALSE)
 }
 \arguments{
 \item{beta0}{numeric, intercept}

@@ -4,8 +4,7 @@
 \alias{PlotOvernightDistancesECDF}
 \title{Plot overnight distances empirical distribution function}
 \usage{
-PlotOvernightDistancesECDF(df = baea, id = NULL, xlim = NULL,
-  line_size = 2)
+PlotOvernightDistancesECDF(df = baea, id = NULL, xlim = NULL, line_size = 2)
 }
 \arguments{
 \item{df}{Dataframe of locations with "date", "last", "step_length".}

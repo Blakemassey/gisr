@@ -4,8 +4,14 @@
 \alias{PlotMatrix}
 \title{Plot a matrix, with arguments for labels and coordinates}
 \usage{
-PlotMatrix(mat, digits = 2, title = NULL, label = TRUE,
-  all_coords = TRUE, label_size = 4)
+PlotMatrix(
+  mat,
+  digits = 2,
+  title = NULL,
+  label = TRUE,
+  all_coords = TRUE,
+  label_size = 4
+)
 }
 \arguments{
 \item{mat}{matrix}
