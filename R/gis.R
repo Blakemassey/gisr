@@ -985,38 +985,31 @@ CreateRasterConNestDistProb <- function(con_nest_raster,
                                         x,
                                         y,
                                         base){
-  gamma_shape <- pars_gamma$shape
-  gamma_rate <- pars_gamma$rate
+  gamma_shape <- as.numeric(pars_gamma$shape)
+  gamma_rate <- as.numeric(pars_gamma$rate)
   y_min <- pars_rescale$y_min
   y_max <- pars_rescale$y_max
   y_min_new <- pars_rescale$y_min_new
   y_max_new <- pars_rescale$y_max_new
-
   cellsize <- raster::res(base)[1]
-
-  plot(con_nest_raster)
-  con_nest_crop <- crop(con_nest_raster, raster_extent, snap = 'in')
-  plot(con_nest_crop)
-
+  con_nest_crop <- raster::crop(con_nest_raster, raster_extent, snap = 'in')
   xy <- CenterXYInCell(x, y, raster::xmin(base), raster::ymin(base),
     raster::res(base)[1])  # May be unnecessary
   xy_pt <- data.frame(x = xy[1], y = xy[2])
-  xy_con_nest <- extract(con_nest_crop, xy_pt)
-
-  con_nest_centered <- calc(con_nest_crop, fun=function(x){(x - xy_con_nest)/1000})
-  plot(con_nest_centered)
+  xy_con_nest <- raster::extract(con_nest_crop, xy_pt)
+  con_nest_centered <- raster::calc(con_nest_crop,
+    fun = function(x){(x - xy_con_nest)/1000})
   y_diff_new <- y_max_new - y_min_new
-
-  y_pgamma <- pgamma(xy_con_nest/1000, shape=gamma_shape, rate=gamma_rate)
+  y_pgamma <- pgamma(xy_con_nest/1000, shape = gamma_shape, rate = gamma_rate)
   y_log_scale <- y_min_new + (((y_pgamma-y_min)/(y_max-y_min)) * (y_diff_new))
 
-#  curve(LogisticByInflection(x, inflection=0, scale=xy_log_scale), -15, 15)
   LogisticByInflection2 <- function(x){
-    x <- LogisticByInflection(x, inflection=0, scale=y_log_scale)
+    x <- LogisticByInflection(x, inflection = 0, scale = y_log_scale)
   }
-  con_nest_prob <- calc(con_nest_centered, fun=LogisticByInflection2)
+  con_nest_prob <- raster::calc(con_nest_centered, fun = LogisticByInflection2)
   return(con_nest_prob)
 }
+
 
 #' CreateSpatialLines
 #'
@@ -2283,19 +2276,27 @@ RescaleAbsoluteDistanceRaster <- function(ras){
 
 #' Rescale raster from 0-1 and redistribute values to a uniform distribution
 #' @usage RescaleAndUniformRaster(raster)
-#' @param raster RasterLayer
+#' @param ras RasterLayer
+#' @param min RasterLayer
+#' @param max RasterLayer
 #' @return RasterLayer
 #' @export
-RescaleAndUniformRaster <- function(ras){
-  ras[] <- scales::rescale(ras[], to = c(0, 1))
-  df <- data.frame(org_value = ras[]) %>%
-    mutate(n_row = 1:n()) %>%
-    arrange(org_value) %>%
-    mutate(new_value = seq(0, 1, length.out = ncell(ras))) %>%
-    arrange(n_row)
+RescaleAndUniformRaster <- function(ras, min = -3, max = 3){
+  `%>%` <- magrittr::`%>%`
+  min_value <- min
+  max_value <- max
+  ras[is.na(ras[])] <- raster::minValue(ras)
+  ras[] <- scales::rescale(ras[], to = c(0, 100))
+  df <- tibble::tibble(org_value = ras[]) %>%
+    tibble::rowid_to_column(., var = "n_row") %>%
+    dplyr::arrange(org_value) %>%
+    dplyr::mutate(new_value = seq(min_value, max_value, length.out =
+      raster::ncell(ras))) %>%
+    dplyr::arrange(n_row)
   ras[] <- df$new_value
   return(ras)
 }
+
 
 #' Converts radians to degrees
 #' @usage Rad2Deg(radians)
