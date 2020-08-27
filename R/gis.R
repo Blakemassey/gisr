@@ -2331,8 +2331,9 @@ RotateRaster <- function(raster,
   raster_in <- raster
   if(angle != 0){
     raster::crs(raster_in) <- "+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=0"
-    raster_rotated <- raster::projectRaster(raster_in, res = resolution,
-        crs = paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=", -angle))
+    raster_rotated <- suppressWarnings(raster::projectRaster(raster_in,
+      res = resolution, crs=paste0("+proj=aeqd +ellps=sphere +lat_0=90 +lon_0=",
+      -angle)))
     raster::crs(raster_rotated) <- raster::crs(raster_in)
   } else {
     raster_rotated <- raster_in

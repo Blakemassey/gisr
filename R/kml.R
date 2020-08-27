@@ -830,7 +830,7 @@ ExportKMLRasterOverlay <- function(raster = raster,
 #' @param outfile name of KML, default is to use name of raster
 #' @param output_dir output folder location, default is getwd()
 #' @param zip logical, whether or not to convert .kml to .kmz
-#'
+#' @import raster
 #' @return KML of a Raster
 #' @export
 #'
@@ -848,7 +848,7 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
                                            output_dir= getwd(),
                                            zip = TRUE) {
   x <- raster
-  if (nlayers(x) > 1) {
+  if (raster::nlayers(x) > 1) {
     x <- x[[1]]
   }
   if(!is.null(outfile)){
@@ -861,18 +861,19 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
     }
     outfile <- paste(output_dir, "/", name, ".kml", sep="")
   }
-  stopifnot(hasValues(x))
-  x <- projectRaster(x, crs="+proj=longlat +datum=WGS84", method=method)
-  unique_x <- length(unique(getValues(x)))
+  stopifnot(raster::hasValues(x))
+  x <- raster::projectRaster(x, crs="+proj=longlat +datum=WGS84", method=method)
+  unique_x <- length(unique(raster::getValues(x)))
   col <- colorRampPalette(color_pal, alpha=TRUE)(unique_x)
   cols <- adjustcolor(col, alpha)
   #  if (unique_x > 250) unique_x <- 250
-  filename <- extension(outfile, ".kml")
-  x <- sampleRegular(x, size=maxpixels, asRaster=TRUE, useGDAL=TRUE)
+  filename <- raster::extension(outfile, ".kml")
+  x <- raster::sampleRegular(x, size = maxpixels, asRaster = TRUE,
+    useGDAL = TRUE)
   imagefile <- filename
-  extension(imagefile) <- ".png"
+  raster::extension(imagefile) <- ".png"
   kmlfile <- kmzfile <- filename
-  extension(kmlfile) <- ".kml"
+  raster::extension(kmlfile) <- ".kml"
   if (file.exists(kmlfile)) {
     if (overwrite) {
       file.remove(kmlfile)
@@ -888,17 +889,19 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
     par(mar = c(0, 0, 0, 0))
   }
   x[x== 0] <- NA
-  image(x, col=cols, axes=FALSE, useRaster=TRUE, maxpixels=maxpixels)
+  raster::image(x, col=cols, axes=FALSE, useRaster=TRUE, maxpixels=maxpixels)
   #plot(x, colNA="transparent")
   dev.off()
   kml <- c("<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
     "<kml xmlns=\"http://www.opengis.net/kml/2.2\">", "<GroundOverlay>")
   kmlname <- paste("<name>", name, "</name>", sep="")
   if(!is.null(time)){
-    start_time <- paste0(strftime(int_start(time), "%Y-%m-%d", tz = time@tzone),
-      "T", strftime(int_start(time), "%H:%M", tz=time@tzone), "Z")
-    end_time <- paste0(strftime(int_end(time), "%Y-%m-%d", tz = time@tzone),
-      "T", strftime(int_end(time), "%H:%M", tz=time@tzone), "Z")
+    start_time <- paste0(strftime(lubridate::int_start(time), "%Y-%m-%d",
+      tz = time@tzone), "T", strftime(lubridate::int_start(time), "%H:%M",
+      tz=time@tzone), "Z")
+    end_time <- paste0(strftime(lubridate::int_end(time), "%Y-%m-%d",
+      tz = time@tzone), "T", strftime(lubridate::int_end(time), "%H:%M",
+      tz=time@tzone), "Z")
     timespan <- paste0("<TimeSpan>", "<begin>", start_time, "</begin>", "<end>",
       end_time, "</end>", "</TimeSpan>")
   } else {
@@ -906,7 +909,7 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
   }
   icon <- paste("<Icon><href>", basename(imagefile),"</href><viewBoundScale>",
     "0.75</viewBoundScale></Icon>", sep="")
-  e <- extent(x)
+  e <- raster::extent(x)
   latlonbox <- c("\t<LatLonBox>", paste("\t\t<north>", e@ymax,"</north><south>",
     e@ymin, "</south><east>", e@xmax, "</east><west>", e@xmin, "</west>",
     sep = ""), "\t</LatLonBox>")
@@ -915,7 +918,6 @@ ExportKMLRasterOverlayWithTime <- function(raster = raster,
   cat(paste(kml, sep = "", collapse = "\n"), file = kmlfile, sep = "")
   if(zip) ZipKML(kmlfile, imagefile)
 }
-
 
 #' ExportKMLPoints
 #'
